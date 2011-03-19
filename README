@@ -1,0 +1,5 @@
+./makelinks.sh ${GNURADIO}/gr-howto-write-a-block
+./bootstrap
+./configure
+make install
+

@@ -1,0 +1,18 @@
+include $(top_srcdir)/Makefile.common
+
+
+if PYTHON
+modpython_PYTHON = \
+  rfidbts_downlink.py
+endif
+
+#EXTRA_DIST = run_tests.in
+
+#TESTS = run_tests
+
+#noinst_PYTHON = \
+#  qa_qam.py \
+#  qa_convenc.py \
+#  qa_intrlv.py \
+#  qa_fullstack.py \
+#  qa_rs.py
