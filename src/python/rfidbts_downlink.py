@@ -25,9 +25,11 @@ class downlink_src(gr.hier_block2):
     #connect everything together
     self.connect(self.pie_encoder, self.rrc_interpolator, self)
 
-  def send_frame(self, msg):
-    #a frame consists of a char* of hex values
-    bit_chunks = ''
+  def send_pkt(self, msg):
+    #a pkt consists of a list of hex values. Want to conver it to a string of bits!
+    #get the frame/preamble flag from the front of the packet. 
+    #bitize everything else
+    bit_chunks = chr(msg.popleft())
     for byte in msg:
       byte_str = self.bin(byte)
       for bit in byte_str:
