@@ -78,7 +78,7 @@ rfidbts_pie_encoder::~rfidbts_pie_encoder()
 {
 }
 
-void rfidbts_pie_encoder::bit_to_pie(gr_msg_queue_sptr command) 
+void rfidbts_pie_encoder::bit_to_pie(gr_message_sptr command) 
 {
 	gr_complex sample_0 = gr_complex(0.0,0.0);
   	gr_complex sample_1 = gr_complex(1.0,0.0);
