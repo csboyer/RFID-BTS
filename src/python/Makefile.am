@@ -3,6 +3,7 @@ include $(top_srcdir)/Makefile.common
 
 if PYTHON
 modpython_PYTHON = \
+  __init__.py\
   rfidbts_downlink.py
 endif
 
