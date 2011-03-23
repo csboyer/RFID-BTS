@@ -78,12 +78,12 @@ rfidbts_pie_encoder::~rfidbts_pie_encoder()
 {
 }
 
-void rfidbts_pie_encoder::bit_to_pie(gr_message &command) 
+void rfidbts_pie_encoder::bit_to_pie(gr_msg_queue_sptr command) 
 {
 	gr_complex sample_0 = gr_complex(0.0,0.0);
   	gr_complex sample_1 = gr_complex(1.0,0.0);
 	unsigned char *bit_buffer;
-	bit_buffer = command.msg(); 
+	bit_buffer = command->msg(); 
 	int rt_cal = 3;
 	int tr_cal = 8;
 
@@ -114,7 +114,7 @@ void rfidbts_pie_encoder::bit_to_pie(gr_message &command)
 
 	// encode the rest of the message
 
-	for (int i = 1; i < command.length(); i++) {
+	for (int i = 1; i < command->length(); i++) {
 		if (bit_buffer[i] == 0) {
 			m_pie_symbols.push_back(sample_1);
 			m_pie_symbols.push_back(sample_0);
