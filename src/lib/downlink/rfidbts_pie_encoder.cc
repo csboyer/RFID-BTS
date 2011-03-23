@@ -140,89 +140,35 @@ rfidbts_pie_encoder::work(int noutput_items,
   //setup constants for memcpy to use
   gr_complex sample_0 = gr_complex(0.0,0.0);
   gr_complex sample_1 = gr_complex(1.0,0.0);
-
+  
+  if (d_eof) {
+    return -1;
+  }
+  //output as many as samples as needed
   while (nn < noutput_items){
-    if (d_msg && d_msg_offset != d_msg->length()){
-      //
-      // Consume whatever we can from the current message
-      //
-      assert(d_msg_offset < d_msg->length());
-      //
-      // Generate a zero bit symbol
-      //
-      if (d_msg->msg()[d_msg_offset] == 0)
-      {
-        assert(d_counted_samples < 2);
-        if (d_counted_samples == 0)
-        {
-          memcpy (out, &sample_1, sizeof(gr_complex));
-          nn++;
-          d_counted_samples++;
-          out += sizeof(gr_complex);
-          d_msg_offset += 1;
-        }
-        else
-        {
-          memcpy (out, &sample_0, sizeof(gr_complex));
-          nn++;
-          d_counted_samples = 0;
-          out += sizeof(gr_complex);
-          d_msg_offset += 1;
-        }
+    //if samples still available to send, add to output buffer
+    if (!d_pie_symbols.empty()){
+      gr_complex pie_sample = d_pie_symbols.pop_front();
+      memcpy (out, &pie_sample, sizeof(gr_complex));
+      nn++;
+      out += sizeof(gr_complex);
+    } 
+    //no more samples to send, check queue for a new message
+    else if (!d_msgq->empty_p()){
+      gr_message_sptr msg = d_msgq->delete_head();
+      //check to see if the message is end of file, if so set flag and return the samples so far
+      if (msg->type() == 1){
+        d_eof = true;
+        break;
       }
-      //
-      // Generate a one bit symbol
-      //
-      else if (d_msg->msg()[d_msg_offset] == 1)
-      {
-        assert(d_counted_samples < 3);
-        if (d_counted_samples < 2)
-        {
-          memcpy (out, &sample_1, sizeof(gr_complex));
-          nn++;
-          d_counted_samples++;
-          out += sizeof(gr_complex);
-          d_msg_offset += 1;
-        }
-        else
-        {
-          memcpy (out, &sample_0, sizeof(gr_complex));
-          nn++;
-          d_counted_samples = 0;
-          out += sizeof(gr_complex);
-          d_msg_offset += 1;
-        }
-      }
-      else
-      {
-        throw std::runtime_error("input msg is not a char sequence of 1 or 0 bits");
-      }
-      
+      //not end of message, convert bits to pie samples. Return before processing next
+      bit_to_pie(msg);
+      break;
     }
-    else if (d_msg && d_msg_offset == d_msg->length()) {
-      if (d_msg->type() == 1)	           // type == 1 sets EOF
-	      d_eof = true;
-	    d_msg.reset();
-    }
+    //nothing in the queue, just run at full power
     else {
-      //
-      // No current message
-      //
-      if (d_msgq->empty_p() && nn >= 0){    // return ones
-        while ( nn < noutput_items)
-        {
-          memcpy (out, &sample_1, sizeof(gr_complex));
-          nn++;
-        }
-        //go to end of method for clean up
-	      break;
-      }
-
-      if (d_eof)
-	      return -1;
-
-      d_msg = d_msgq->delete_head();	   // block, waiting for a message
-      d_msg_offset = 0;
+      memcpy (out, &sample_1, sizeof(gr_complex) * (noutput_items - nn));
+      nn = noutput_items;
     }
   }
 
