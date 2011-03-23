@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 #add some GPL3/GNURadio license stuff here
+from scipy import *
+from scipy import fftpack
+import array
+import Gnuplot
+import math
 from gnuradio import gr, eng_notation
 from optparse import OptionParser
 from gnuradio.eng_option import eng_option
@@ -76,6 +81,21 @@ def get_code(com):
 		return (5, 6, 7, 8)
 	else:
 		return 0
+def plot_file(filename):
+	gp = Gnuplot.Gnuplot(persist=1)
+	gp2 = Gnuplot.Gnuplot(persist=1)
+	#The following commented code is to output to gnuplot
+	data = array.array('f')
+	outputF = open(filename)
+	data.fromfile(outputF, 100)
+	x = range(5000)
+	gp('set xlabel "Frequency"')
+	gp('set ylabel "Magnitude"')
+	
+	gp.plot(abs(fft(data)))
+	gp2('set xlabel "Time (samples)"')
+	gp2('set ylabel "Magnitude"')
+	gp2.plot(data)
 
 def to_add():
 
@@ -86,15 +106,6 @@ def to_add():
 		pwr_on = True
 		tb.start()
 		print("Sending power to device.")
-		#The following commented code is to output to gnuplot		
-		#tb.wait()
-		#outputF = open('output.dat')
-		#data.fromfile(outputF, 100)
-		#x = range(5000)
-		#gp('set xlabel "Time (samples)"')
-		#gp('set ylabel "Magnitude"')
-		#gp.plot(abs(fft(tb.rrc_taps)))
-		#gp.plot(abs(fft(data)))
     elif com == "stop":
       tb.stop()
       tb.wait()
