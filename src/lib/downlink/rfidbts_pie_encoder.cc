@@ -78,6 +78,58 @@ rfidbts_pie_encoder::~rfidbts_pie_encoder()
 {
 }
 
+void rfidbts_pie_encoder::bit_to_pie(gr_message &command) 
+{
+	gr_complex sample_0 = gr_complex(0.0,0.0);
+  	gr_complex sample_1 = gr_complex(1.0,0.0);
+	unsigned char *bit_buffer;
+	bit_buffer = command.msg(); 
+	int rt_cal = 3;
+	int tr_cal = 8;
+
+	// encode preamble or frame sync
+	if (bit_buffer[0] == (unsigned char) 0xE) {  // preamble
+		m_pie_symbols.push_back(sample_0);
+		m_pie_symbols.push_back(sample_1);
+		m_pie_symbols.push_back(sample_0);
+		for (int i = 0; i < rt_cal * 2 - 1; i++) {
+			m_pie_symbols.push_back(sample_1);
+		}
+		m_pie_symbols.push_back(sample_0);
+		for (int i = 0; i < tr_cal * 2 - 1; i++) {
+			m_pie_symbols.push_back(sample_1);
+		}
+		m_pie_symbols.push_back(sample_0);
+	} else if (bit_buffer[0] == (unsigned char) 0xF) {
+		m_pie_symbols.push_back(sample_0);
+		m_pie_symbols.push_back(sample_1);
+		m_pie_symbols.push_back(sample_0);
+		for (int i = 0; i < rt_cal * 2 - 1; i++) {
+			m_pie_symbols.push_back(sample_1);
+		}
+		m_pie_symbols.push_back(sample_0);
+	} else {
+		throw std::runtime_error("input msg is not a char sequence of 1 or 0 bits");
+	}
+
+	// encode the rest of the message
+
+	for (int i = 1; i < command.length(); i++) {
+		if (bit_buffer[i] == 0) {
+			m_pie_symbols.push_back(sample_1);
+			m_pie_symbols.push_back(sample_0);
+		} else if (bit_buffer[i] == 1) {
+			m_pie_symbols.push_back(sample_1);
+			m_pie_symbols.push_back(sample_1);
+			m_pie_symbols.push_back(sample_1);
+			m_pie_symbols.push_back(sample_0);
+		} else {
+			throw std::runtime_error("input msg is not a char sequence of 1 or 0 bits");
+		}
+	}
+			
+} 
+
 int
 rfidbts_pie_encoder::work(int noutput_items,
 			gr_vector_const_void_star &input_items,
