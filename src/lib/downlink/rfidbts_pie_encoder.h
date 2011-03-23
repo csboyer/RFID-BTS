@@ -43,9 +43,6 @@ class rfidbts_pie_encoder : public gr_sync_block
  private:
 
   gr_msg_queue_sptr	d_msgq;
-  gr_message_sptr	d_msg;
-  unsigned		d_msg_offset;
-  unsigned    d_counted_samples;
   bool			d_eof;
 
   friend rfidbts_pie_encoder_sptr
