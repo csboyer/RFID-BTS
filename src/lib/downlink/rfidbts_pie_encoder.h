@@ -52,7 +52,7 @@ class rfidbts_pie_encoder : public gr_sync_block
   rfidbts_make_pie_encoder(int msgq_limit);
   friend rfidbts_pie_encoder_sptr
   rfidbts_make_pie_encoder(gr_msg_queue_sptr msgq);
-
+  void bit_to_pie(gr_message_sptr command);
  protected:
   rfidbts_pie_encoder (int msgq_limit);
   rfidbts_pie_encoder (gr_msg_queue_sptr msgq);
