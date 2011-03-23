@@ -26,7 +26,6 @@
 #include <gr_sync_block.h>
 #include <gr_message.h>
 #include <gr_msg_queue.h>
-using namespace std;
 
 
 class rfidbts_pie_encoder;
@@ -46,7 +45,7 @@ class rfidbts_pie_encoder : public gr_sync_block
   gr_msg_queue_sptr	d_msgq;
 
   bool			d_eof;
-  list<gr_complex>	m_pie_symbols;
+  std::list<gr_complex>	d_pie_symbols;
 
   friend rfidbts_pie_encoder_sptr
   rfidbts_make_pie_encoder(int msgq_limit);

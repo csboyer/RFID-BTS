@@ -36,7 +36,7 @@
 #include <stdexcept>
 #include <string.h>
 
-
+using namespace std;
 // public constructor that returns a shared_ptr
 
 rfidbts_pie_encoder_sptr
@@ -57,8 +57,6 @@ rfidbts_pie_encoder::rfidbts_pie_encoder (int msgq_limit)
 		  gr_make_io_signature(0, 0, 0),
 		  gr_make_io_signature(1, 1, sizeof(gr_complex))),
       d_msgq(gr_make_msg_queue(msgq_limit)),
-      d_msg_offset(0), 
-      d_counted_samples(0), 
       d_eof(false)
 {
 }
@@ -68,8 +66,6 @@ rfidbts_pie_encoder::rfidbts_pie_encoder (gr_msg_queue_sptr msgq)
 		  gr_make_io_signature(0, 0, 0),
 		  gr_make_io_signature(1, 1, sizeof(gr_complex))),
       d_msgq(msgq), 
-      d_msg_offset(0),
-      d_counted_samples(0), 
       d_eof(false)
 {
 }
@@ -89,25 +85,25 @@ void rfidbts_pie_encoder::bit_to_pie(gr_message_sptr command)
 
 	// encode preamble or frame sync
 	if (bit_buffer[0] == (unsigned char) 0xE) {  // preamble
-		m_pie_symbols.push_back(sample_0);
-		m_pie_symbols.push_back(sample_1);
-		m_pie_symbols.push_back(sample_0);
+		d_pie_symbols.push_back(sample_0);
+		d_pie_symbols.push_back(sample_1);
+		d_pie_symbols.push_back(sample_0);
 		for (int i = 0; i < rt_cal * 2 - 1; i++) {
-			m_pie_symbols.push_back(sample_1);
+			d_pie_symbols.push_back(sample_1);
 		}
-		m_pie_symbols.push_back(sample_0);
+		d_pie_symbols.push_back(sample_0);
 		for (int i = 0; i < tr_cal * 2 - 1; i++) {
-			m_pie_symbols.push_back(sample_1);
+			d_pie_symbols.push_back(sample_1);
 		}
-		m_pie_symbols.push_back(sample_0);
+		d_pie_symbols.push_back(sample_0);
 	} else if (bit_buffer[0] == (unsigned char) 0xF) {
-		m_pie_symbols.push_back(sample_0);
-		m_pie_symbols.push_back(sample_1);
-		m_pie_symbols.push_back(sample_0);
+		d_pie_symbols.push_back(sample_0);
+		d_pie_symbols.push_back(sample_1);
+		d_pie_symbols.push_back(sample_0);
 		for (int i = 0; i < rt_cal * 2 - 1; i++) {
-			m_pie_symbols.push_back(sample_1);
+      d_pie_symbols.push_back(sample_1);
 		}
-		m_pie_symbols.push_back(sample_0);
+		d_pie_symbols.push_back(sample_0);
 	} else {
 		throw std::runtime_error("input msg is not a char sequence of 1 or 0 bits");
 	}
@@ -116,13 +112,13 @@ void rfidbts_pie_encoder::bit_to_pie(gr_message_sptr command)
 
 	for (int i = 1; i < command->length(); i++) {
 		if (bit_buffer[i] == 0) {
-			m_pie_symbols.push_back(sample_1);
-			m_pie_symbols.push_back(sample_0);
+			d_pie_symbols.push_back(sample_1);
+			d_pie_symbols.push_back(sample_0);
 		} else if (bit_buffer[i] == 1) {
-			m_pie_symbols.push_back(sample_1);
-			m_pie_symbols.push_back(sample_1);
-			m_pie_symbols.push_back(sample_1);
-			m_pie_symbols.push_back(sample_0);
+			d_pie_symbols.push_back(sample_1);
+			d_pie_symbols.push_back(sample_1);
+			d_pie_symbols.push_back(sample_1);
+			d_pie_symbols.push_back(sample_0);
 		} else {
 			throw std::runtime_error("input msg is not a char sequence of 1 or 0 bits");
 		}
@@ -148,7 +144,8 @@ rfidbts_pie_encoder::work(int noutput_items,
   while (nn < noutput_items){
     //if samples still available to send, add to output buffer
     if (!d_pie_symbols.empty()){
-      gr_complex pie_sample = d_pie_symbols.pop_front();
+      gr_complex pie_sample = d_pie_symbols.front();
+      d_pie_symbols.pop_front();
       memcpy (out, &pie_sample, sizeof(gr_complex));
       nn++;
       out += sizeof(gr_complex);
