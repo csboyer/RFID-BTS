@@ -17,7 +17,7 @@ class downlink_src(gr.hier_block2):
     symbol_rate = 1.0
     alpha = 0.02
     ntaps = 41
-    self.rrc_taps = gr.firdes.root_raised_cosine(gain,samples_per_second,symbol_rate,alpha,ntap)
+    self.rrc_taps = gr.firdes.root_raised_cosine(gain,samples_per_symbol,symbol_rate,alpha,ntaps)
     #construct interpolator
     interp_factor = samples_per_symbol
     self.rrc_interpolator = gr.interp_fir_filter_ccf(interp_factor, self.rrc_taps)

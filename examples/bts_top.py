@@ -18,8 +18,8 @@ class downlink_test_file_sink(gr.hier_block2):
                             gr.io_signature(1,1,gr.sizeof_gr_complex),
                             gr.io_signature(0,0,0))
     self.c_to_f = gr.complex_to_real()
-    self.rate_limiter = gr.throttle(gr.sizeof_gr_float,usrp_rate/usrp_interp)
-    self.f = gr.file_sink(gr.sizeof_gr_float,'output.dat')
+    self.rate_limiter = gr.throttle(gr.sizeof_float,usrp_rate/usrp_interp)
+    self.f = gr.file_sink(gr.sizeof_float,'output.dat')
 
     self.connect(self,self.c_to_f,self.rate_limiter,self.f)
 
@@ -72,7 +72,7 @@ class bts_top_block(gr.top_block):
     if run_usrp:
       self.sink = downlink_usrp_sink(options,usrp_rate,usrp_interp,tari_rate)
     else:
-      self.sink = downlink_test_file_test(usrp_rate,usrp_interp)
+      self.sink = downlink_test_file_sink(usrp_rate,usrp_interp)
 
     self.connect(self.downlink,self.sink)
 
