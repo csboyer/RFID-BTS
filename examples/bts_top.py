@@ -18,10 +18,11 @@ class downlink_test_file_sink(gr.hier_block2):
                             gr.io_signature(1,1,gr.sizeof_gr_complex),
                             gr.io_signature(0,0,0))
     self.c_to_f = gr.complex_to_real()
-    self.rate_limiter = gr.throttle(gr.sizeof_float,usrp_rate/usrp_interp)
+    #self.rate_limiter = gr.throttle(gr.sizeof_float,usrp_rate/usrp_interp)
+    self.chop = gr.head(gr.sizeof_float, 20000)
     self.f = gr.file_sink(gr.sizeof_float,'output.dat')
 
-    self.connect(self,self.c_to_f,self.rate_limiter,self.f)
+    self.connect(self,self.c_to_f, self.chop,self.f)
 
 class downlink_usrp_sink(gr.hier_block2):
   def __init__(self,options,usrp_rate,usrp_interp,tari_rate):
