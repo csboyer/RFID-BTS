@@ -9,7 +9,7 @@ from gnuradio import gr, eng_notation
 from optparse import OptionParser
 from gnuradio.eng_option import eng_option
 import sys
-
+import os
 import rfidbts
 
 class downlink_test_file_sink(gr.hier_block2):
@@ -106,22 +106,25 @@ def main():
 def get_pkt_test():
 		return (0xE, 0xF, 0x0, 0xF, 0x0)
 
+# plots the data from filename.  The file must contain all floats.
 def plot_file(filename):
 	gp = Gnuplot.Gnuplot(persist=1)
 	gp2 = Gnuplot.Gnuplot(persist=1)
 	#The following commented code is to output to gnuplot
 	data = array.array('f')
 	outputF = open(filename)
-	data.fromfile(outputF, 100)
-	x = range(5000)
+	data.fromfile(outputF, os.path.getsize(filename) / 4)
+	
+	gp('set style data lines')
 	gp('set xlabel "Frequency"')
 	gp('set ylabel "Magnitude"')
-	
 	gp.plot(abs(fft(data)))
+	data2 = Gnuplot.Data(data, title='Plotting from Python')
 	gp2('set xlabel "Time (samples)"')
-	gp2('set ylabel "Magnitude"')
-	gp2.plot(data)
-
+	gp2('set ylabel "Magnitude"')	
+	gp2('set yrange [0:2]')
+	gp2('set style data lines')
+	gp2.plot(data2)
 
 def to_add():
 
