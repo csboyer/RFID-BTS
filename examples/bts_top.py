@@ -21,7 +21,7 @@ class downlink_test_file_sink(gr.hier_block2):
                             gr.io_signature(0,0,0))
     self.c_to_f = gr.complex_to_real()
     #self.rate_limiter = gr.throttle(gr.sizeof_float,usrp_rate/usrp_interp)
-    self.chop = gr.head(gr.sizeof_float, 20000)
+    self.chop = gr.head(gr.sizeof_float, 150)
     self.f = gr.file_sink(gr.sizeof_float,'output.dat')
 
     self.connect(self,self.c_to_f, self.chop,self.f)
@@ -100,7 +100,8 @@ def main():
   try:
     tb.run()
     tb.downlink.send_pkt(get_pkt_test())
-    time.sleep(0.001) #sleep for 1 millisecond
+    time.sleep(1) #sleep for 1 millisecond
+    tb.wait()
     tb.stop()
 
   except KeyboardInterrupt:

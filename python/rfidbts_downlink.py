@@ -23,7 +23,8 @@ class downlink_src(gr.hier_block2):
     self.rrc_interpolator = gr.interp_fir_filter_ccf(interp_factor, self.rrc_taps)
 
     #connect everything together
-    self.connect(self.pie_encoder, self.rrc_interpolator, self)
+    #self.connect(self.pie_encoder, self.rrc_interpolator, self)
+    self.connect(self.pie_encoder,self)
 
   def send_pkt(self, msg):
     #a pkt consists of a list of hex values. Want to conver it to a string of bits!
@@ -35,7 +36,7 @@ class downlink_src(gr.hier_block2):
       for bit in byte_str:
         bit_chunks = bit_chunks + str(int(bit))
     #add bit chunks to queue
-
+    print 'Sending message to pie_encoder: ' + bit_chunks
     self.pie_encoder.msgq().insert_tail(gr.message_from_string(str(bit_chunks)))
     
   def bin(self,s):
