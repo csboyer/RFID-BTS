@@ -9,7 +9,7 @@ class downlink_src(gr.hier_block2):
                             gr.io_signature(0, 0, 0), #input is command to send to tag
                             gr.io_signature(1, 1, gr.sizeof_gr_complex)) #output is complex baseband to sink
     #declare pie encoder
-    self.pie_encoder = rfidbts.pie_encoder(2)
+    self.pie_encoder = rfidbts.rfidbts_pie_encoder(2)
     #construct rrc filter
     #each half tari is a symbol
     samples_per_symbol = usrp_rate / tari_rate / 2
