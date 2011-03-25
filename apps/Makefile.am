@@ -1,5 +1,5 @@
 #
-# Copyright 2001,2002,2003,2004,2005,2006,2007 Free Software Foundation, Inc.
+# Copyright 2009 Free Software Foundation, Inc.
 # 
 # This file is part of GNU Radio
 # 
@@ -19,7 +19,9 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-For the blow by blow changes for each file, please consult
-http://gnuradio.org/trac/timeline
-	
-It's got everything that used to be in here ;)
+include $(top_srcdir)/Makefile.common
+
+if PYTHON
+
+
+endif

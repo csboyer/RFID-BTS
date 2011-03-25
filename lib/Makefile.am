@@ -1,5 +1,5 @@
 #
-# Copyright 2001,2002,2003,2004,2005,2006,2007 Free Software Foundation, Inc.
+# Copyright 2004,2005,2006,2008,2009,2010 Free Software Foundation, Inc.
 # 
 # This file is part of GNU Radio
 # 
@@ -19,7 +19,27 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-For the blow by blow changes for each file, please consult
-http://gnuradio.org/trac/timeline
-	
-It's got everything that used to be in here ;)
+include $(top_srcdir)/Makefile.common
+
+# list of programs run by "make check" and "make distcheck"
+TESTS = test_all
+
+# ----------------------------------------------------------------
+# rfidbts C++ library: libgnuradio-rfidbts.so
+# ----------------------------------------------------------------
+
+# C/C++ headers get installed in ${prefix}/include/$(modname)
+modinclude_HEADERS = \
+	rfidbts_pie_encoder.h 
+
+lib_LTLIBRARIES = libgnuradio-rfidbts.la
+
+libgnuradio_rfidbts_la_SOURCES = \
+	rfidbts_pie_encoder.cc
+
+libgnuradio_rfidbts_la_LIBADD = \
+	$(GNURADIO_CORE_LA)
+
+libgnuradio_rfidbts_la_LDFLAGS = $(NO_UNDEFINED) $(LTVERSIONFLAGS)
+
+

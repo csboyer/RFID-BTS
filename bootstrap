@@ -1,5 +1,6 @@
-#
-# Copyright 2001,2002,2003,2004,2005,2006,2007 Free Software Foundation, Inc.
+#!/bin/sh
+
+# Copyright 2001,2005,2008 Free Software Foundation, Inc.
 # 
 # This file is part of GNU Radio
 # 
@@ -17,9 +18,12 @@
 # along with GNU Radio; see the file COPYING.  If not, write to
 # the Free Software Foundation, Inc., 51 Franklin Street,
 # Boston, MA 02110-1301, USA.
-# 
 
-For the blow by blow changes for each file, please consult
-http://gnuradio.org/trac/timeline
-	
-It's got everything that used to be in here ;)
+
+rm -fr config.cache autom4te*.cache
+
+aclocal -I config
+autoconf
+autoheader
+libtoolize --automake -c -f
+automake --add-missing -c -f -Wno-portability

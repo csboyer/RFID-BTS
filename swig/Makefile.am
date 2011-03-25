@@ -1,5 +1,5 @@
 #
-# Copyright 2004,2008,2009 Free Software Foundation, Inc.
+# Copyright 2004,2005,2006,2008,2009,2010 Free Software Foundation, Inc.
 # 
 # This file is part of GNU Radio
 # 
@@ -19,23 +19,35 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-ACLOCAL_AMFLAGS = -I config
-
 include $(top_srcdir)/Makefile.common
 
-EXTRA_DIST = \
-	bootstrap \
-	configure \
-	config.h.in \
-	Makefile.swig \
-	Makefile.swig.gen.t \
-	version.sh \
-	README \
-	README.hacking
+AM_CPPFLAGS += -I$(top_srcdir)/lib
 
-SUBDIRS = config lib swig python apps
+if PYTHON
+###################################
+# SWIG Python interface and library
 
-pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA =
+TOP_SWIG_IFILES = \
+	rfidbts.i
 
-#DISTCLEANFILES = gr-howto-write-a-block*.tar.gz
+# Install so that they end up available as:
+#   import rfidbts
+# This ends up at:
+#   ${prefix}/lib/python${python_version}/site-packages/$(modname)
+
+rfidbts_la_swig_libadd =		\
+	$(top_builddir)/lib/libgnuradio-rfidbts.la
+
+include $(top_srcdir)/Makefile.swig
+
+# add some of the variables generated inside the Makefile.swig.gen
+BUILT_SOURCES = $(swig_built_sources)
+
+# Do not distribute the output of SWIG
+no_dist_files = $(swig_built_sources)
+
+# additional SWIG files to be installed
+rfidbts_swiginclude_headers = \
+	rfidbts_downlink.i 
+
+endif
