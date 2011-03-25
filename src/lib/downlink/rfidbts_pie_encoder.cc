@@ -42,31 +42,31 @@ using namespace std;
 rfidbts_pie_encoder_sptr
 rfidbts_make_pie_encoder(int msgq_limit)
 {
-  return gnuradio::get_initial_sptr(new rfidbts_pie_encoder(msgq_limit));
+  return rfidbts_pie_encoder_sptr(new rfidbts_pie_encoder(msgq_limit));
 }
 
 // public constructor that takes existing message queue
 rfidbts_pie_encoder_sptr
 rfidbts_make_pie_encoder(gr_msg_queue_sptr msgq)
 {
-  return gnuradio::get_initial_sptr(new rfidbts_pie_encoder(msgq));
+  return rfidbts_pie_encoder_sptr(new rfidbts_pie_encoder(msgq));
 }
 
 rfidbts_pie_encoder::rfidbts_pie_encoder (int msgq_limit)
-  : gr_sync_block("pie_encoder",
+  : gr_block("pie_encoder",
 		  gr_make_io_signature(0, 0, 0),
 		  gr_make_io_signature(1, 1, sizeof(gr_complex))),
-      d_msgq(gr_make_msg_queue(msgq_limit)),
-      d_eof(false)
+    d_msgq(gr_make_msg_queue(msgq_limit)),
+    d_eof(false)
 {
 }
 
 rfidbts_pie_encoder::rfidbts_pie_encoder (gr_msg_queue_sptr msgq)
-  : gr_sync_block("pie_encoder",
+  : gr_block("pie_encoder",
 		  gr_make_io_signature(0, 0, 0),
 		  gr_make_io_signature(1, 1, sizeof(gr_complex))),
-      d_msgq(msgq), 
-      d_eof(false)
+    d_msgq(msgq), 
+    d_eof(false)
 {
 }
 
@@ -127,7 +127,8 @@ void rfidbts_pie_encoder::bit_to_pie(gr_message_sptr command)
 } 
 
 int
-rfidbts_pie_encoder::work(int noutput_items,
+rfidbts_pie_encoder::general_work(int noutput_items,
+      gr_vector_int &ninput_items,
 			gr_vector_const_void_star &input_items,
 			gr_vector_void_star &output_items)
 {

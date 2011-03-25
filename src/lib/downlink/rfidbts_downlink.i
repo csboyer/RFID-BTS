@@ -26,19 +26,15 @@
 %}
 
 GR_SWIG_BLOCK_MAGIC(rfidbts,pie_encoder);
-
 rfidbts_pie_encoder_sptr rfidbts_make_pie_encoder (int msgq_limit=1);
 rfidbts_pie_encoder_sptr rfidbts_make_pie_encoder (gr_msg_queue_sptr msgq);
 
 class rfidbts_pie_encoder : public gr_sync_block
 {
  protected:
-  rfidbts_pie_encoder (int msgq_limit);
+  rfidbts_pie_encoder (int msqq_limit);
   rfidbts_pie_encoder (gr_msg_queue_sptr msgq);
-
  public:
-  ~rfidbts_pie_encoder ();
-
   gr_msg_queue_sptr msgq() const;
 };
 

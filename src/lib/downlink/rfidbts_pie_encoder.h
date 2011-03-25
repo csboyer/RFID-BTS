@@ -23,7 +23,7 @@
 #ifndef INCLUDED_RFIDBTS_PIE_ENCODER_H
 #define INCLUDED_RFIDBTS_PIE_ENCODER_H
 
-#include <gr_sync_block.h>
+#include <gr_block.h>
 #include <gr_message.h>
 #include <gr_msg_queue.h>
 
@@ -38,7 +38,7 @@ rfidbts_pie_encoder_sptr rfidbts_make_pie_encoder (gr_msg_queue_sptr msgq);
  * \brief Turn received messages into a stream
  * \ingroup source_blk
  */
-class rfidbts_pie_encoder : public gr_sync_block
+class rfidbts_pie_encoder : public gr_block
 {
  private:
 
@@ -57,11 +57,11 @@ class rfidbts_pie_encoder : public gr_sync_block
   rfidbts_pie_encoder (gr_msg_queue_sptr msgq);
 
  public:
-  ~rfidbts_pie_encoder ();
+  ~rfidbts_pie_encoder();
 
   gr_msg_queue_sptr	msgq() const { return d_msgq; }
 
-  int work (int noutput_items,
+  int general_work (int noutput_items,
 	    gr_vector_const_void_star &input_items,
 	    gr_vector_void_star &output_items);
 };
