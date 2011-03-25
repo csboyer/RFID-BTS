@@ -29,14 +29,15 @@ class downlink_src(gr.hier_block2):
     #a pkt consists of a list of hex values. Want to conver it to a string of bits!
     #get the frame/preamble flag from the front of the packet. 
     #bitize everything else
-    bit_chunks = chr(msg.popleft())
+    bit_chunks = str(msg.pop(0))
     for byte in msg:
-      byte_str = self.bin(byte)
+      byte_str = self.bin(byte)[2:]
       for bit in byte_str:
-        bit_chunks = bit_chunks + chr(int(bit))
+        bit_chunks = bit_chunks + str(int(bit))
     #add bit chunks to queue
-    self.pie_encoder.msgq().insert_tail(gr.make_message_from_string(bit_chunks))
+
+    self.pie_encoder.msgq().insert_tail(gr.message_from_string(str(bit_chunks)))
     
-  def bin(s):
+  def bin(self,s):
     return str(s) if s<=1 else bin(s>>1) + str(s&1)
 

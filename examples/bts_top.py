@@ -10,6 +10,8 @@ from optparse import OptionParser
 from gnuradio.eng_option import eng_option
 import sys
 import os
+import time
+
 import rfidbts
 
 class downlink_test_file_sink(gr.hier_block2):
@@ -105,7 +107,7 @@ def main():
     pass
 
 def get_pkt_test():
-		return (0xE, 0xF, 0x0, 0xF, 0x0)
+		return [0xE, 0xF, 0x0, 0xF, 0x0]
 
 # plots the data from filename.  The file must contain all floats.
 def plot_file(filename):
