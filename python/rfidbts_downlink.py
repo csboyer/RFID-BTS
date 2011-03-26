@@ -31,14 +31,22 @@ class downlink_src(gr.hier_block2):
     #get the frame/preamble flag from the front of the packet. 
     #bitize everything else
     bit_chunks = str(msg.pop(0))
+    
     for byte in msg:
-      byte_str = self.bin(byte)[2:]
+      byte_str = self.bin(byte)
       for bit in byte_str:
         bit_chunks = bit_chunks + str(int(bit))
     #add bit chunks to queue
-    print 'Sending message to pie_encoder: ' + bit_chunks
     self.pie_encoder.msgq().insert_tail(gr.message_from_string(str(bit_chunks)))
     
   def bin(self,s):
-    return str(s) if s<=1 else bin(s>>1) + str(s&1)
+    temp = ""
+    count = 1
+    for i in range(4):
+      if count & s != 0:
+        temp = "1" + temp
+      else:
+        temp = "0" + temp
+      count = count * 2
+    return temp
 

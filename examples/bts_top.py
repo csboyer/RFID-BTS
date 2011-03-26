@@ -98,8 +98,8 @@ def main():
   tb = bts_top_block()
   
   try:
-    tb.run()
     tb.downlink.send_pkt(get_pkt_test())
+    tb.run()
     time.sleep(1) #sleep for 1 millisecond
     tb.wait()
     tb.stop()
@@ -108,7 +108,7 @@ def main():
     pass
 
 def get_pkt_test():
-		return [0xE, 0xF, 0x0, 0xF, 0x0]
+		return [0x4, 0xF, 0x0, 0xF, 0x0]
 
 # plots the data from filename.  The file must contain all floats.
 def plot_file(filename):

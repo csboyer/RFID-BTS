@@ -84,7 +84,7 @@ void rfidbts_pie_encoder::bit_to_pie(gr_message_sptr command)
 	int tr_cal = 8;
 
 	// encode preamble or frame sync
-	if (bit_buffer[0] == (unsigned char) 0xE) {  // preamble
+	if (bit_buffer[0] == '4') {  // preamble
 		d_pie_symbols.push_back(sample_0);
 		d_pie_symbols.push_back(sample_1);
 		d_pie_symbols.push_back(sample_0);
@@ -96,7 +96,7 @@ void rfidbts_pie_encoder::bit_to_pie(gr_message_sptr command)
 			d_pie_symbols.push_back(sample_1);
 		}
 		d_pie_symbols.push_back(sample_0);
-	} else if (bit_buffer[0] == (unsigned char) 0xF) {
+	} else if (bit_buffer[0] == '5') {
 		d_pie_symbols.push_back(sample_0);
 		d_pie_symbols.push_back(sample_1);
 		d_pie_symbols.push_back(sample_0);
@@ -105,16 +105,16 @@ void rfidbts_pie_encoder::bit_to_pie(gr_message_sptr command)
 		}
 		d_pie_symbols.push_back(sample_0);
 	} else {
-		throw std::runtime_error("input msg is not a char sequence of 1 or 0 bits");
+		throw std::runtime_error("Bad header code");
 	}
 
 	// encode the rest of the message
 
 	for (int i = 1; i < command->length(); i++) {
-		if (bit_buffer[i] == 0) {
+		if (bit_buffer[i] == '0') {
 			d_pie_symbols.push_back(sample_1);
 			d_pie_symbols.push_back(sample_0);
-		} else if (bit_buffer[i] == 1) {
+		} else if (bit_buffer[i] == '1') {
 			d_pie_symbols.push_back(sample_1);
 			d_pie_symbols.push_back(sample_1);
 			d_pie_symbols.push_back(sample_1);
@@ -161,12 +161,13 @@ rfidbts_pie_encoder::general_work(int noutput_items,
       }
       //not end of message, convert bits to pie samples. Return before processing next
       bit_to_pie(msg);
-      break;
+      //break;
     }
     //nothing in the queue, just run at full power
     else {
-      memcpy (out, &sample_1, sizeof(gr_complex) * (noutput_items - nn));
-      nn = noutput_items;
+      memcpy (out, &sample_1, sizeof(gr_complex));
+      out += sizeof(gr_complex);
+      nn++;
     }
   }
 
