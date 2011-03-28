@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 #add some GPL3/GNURadio license stuff here
 from scipy import *
-from scipy import fftpack
-from gnuradio import usrp
 import array
 import Gnuplot
 import math
-from gnuradio import gr, eng_notation
-from optparse import OptionParser
-from gnuradio.eng_option import eng_option
 import sys
 import os
 import time
+
+
+from gnuradio import gr, eng_notation
+from gnuradio import usrp
+from gnuradio.eng_option import eng_option
+from optparse import OptionParser
 
 import rfidbts
 
@@ -21,7 +22,6 @@ class downlink_test_file_sink(gr.hier_block2):
                             gr.io_signature(1,1,gr.sizeof_gr_complex),
                             gr.io_signature(0,0,0))
     self.c_to_f = gr.complex_to_real()
-    #self.rate_limiter = gr.throttle(gr.sizeof_float,usrp_rate/usrp_interp)
     self.chop = gr.head(gr.sizeof_float, 500)
     self.f = gr.file_sink(gr.sizeof_float,'output.dat')
 
@@ -34,11 +34,15 @@ class downlink_usrp_sink(gr.hier_block2):
                             gr.io_signature(0,0,0))
 
     self.u = usrp.sink_c()
+    #setup daughter boards
+    subdev_spec = usrp.pick_tx_subdevice(self.u)
+    self.subdev = usrp.selected_subdev(self.u,subdev_spec)
+    self.u.set_mux(usrp.determine_tx_mux_value(self.u,subdev_spec))
+    #set interp rate
     self.u.set_interp_rate(usrp_interp)
-    self.u.set_mux(usrp.determine_tx_mux_value(self.u,))
-    self.subdev = usrp.selected_subdev(self.u,usrp.pick_tx_subdevice(self.u))
     #set max tx gain
     self.subdev.set_gain(self.subdev.gain_range()[1])
+    #setup frequency
     if not self.set_freq(options.freq):
       freq_range = self.subdev.freq_range()
       print "Failed to set frequency to %s.  Daughterboard supports %s to %s" % (
