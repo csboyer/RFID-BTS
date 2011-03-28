@@ -2,6 +2,7 @@
 #add some GPL3/GNURadio license stuff here
 from scipy import *
 from scipy import fftpack
+from gnuradio import usrp
 import array
 import Gnuplot
 import math
@@ -21,7 +22,7 @@ class downlink_test_file_sink(gr.hier_block2):
                             gr.io_signature(0,0,0))
     self.c_to_f = gr.complex_to_real()
     #self.rate_limiter = gr.throttle(gr.sizeof_float,usrp_rate/usrp_interp)
-    self.chop = gr.head(gr.sizeof_float, 150)
+    self.chop = gr.head(gr.sizeof_float, 500)
     self.f = gr.file_sink(gr.sizeof_float,'output.dat')
 
     self.connect(self,self.c_to_f, self.chop,self.f)
@@ -32,9 +33,9 @@ class downlink_usrp_sink(gr.hier_block2):
                             gr.io_signature(1,1,gr.sizeof_gr_complex),
                             gr.io_signature(0,0,0))
 
-    self.u = gr.usrp_sink_c()
+    self.u = usrp.sink_c()
     self.u.set_interp_rate(usrp_interp)
-    self.u.set_mux(usrp.determine_tx_mux_value(self.u,0))
+    self.u.set_mux(usrp.determine_tx_mux_value(self.u,))
     self.subdev = usrp.selected_subdev(self.u,usrp.pick_tx_subdevice(self.u))
     #set max tx gain
     self.subdev.set_gain(self.subdev.gain_range()[1])
@@ -69,7 +70,7 @@ class bts_top_block(gr.top_block):
     usrp_rate = 128000000
     usrp_interp = 400
     tari_rate = 80000
-    run_usrp = False
+    run_usrp = True
 
     self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)
     if run_usrp:
