@@ -22,7 +22,7 @@ class downlink_test_file_sink(gr.hier_block2):
                             gr.io_signature(1,1,gr.sizeof_gr_complex),
                             gr.io_signature(0,0,0))
     self.c_to_f = gr.complex_to_real()
-    self.chop = gr.head(gr.sizeof_float, 500)
+    self.chop = gr.head(gr.sizeof_float, 2000)
     self.f = gr.file_sink(gr.sizeof_float,'output.dat')
 
     self.connect(self,self.c_to_f, self.chop,self.f)
@@ -34,14 +34,19 @@ class downlink_usrp_sink(gr.hier_block2):
                             gr.io_signature(0,0,0))
 
     self.u = usrp.sink_c()
+
     #setup daughter boards
     subdev_spec = usrp.pick_tx_subdevice(self.u)
     self.subdev = usrp.selected_subdev(self.u,subdev_spec)
     self.u.set_mux(usrp.determine_tx_mux_value(self.u,subdev_spec))
+    print "Using TX d'board %s" % (self.subdev.side_and_name(),)
+
     #set interp rate
     self.u.set_interp_rate(usrp_interp)
+
     #set max tx gain
     self.subdev.set_gain(self.subdev.gain_range()[1])
+    
     #setup frequency
     if not self.set_freq(options.freq):
       freq_range = self.subdev.freq_range()
@@ -73,8 +78,9 @@ class bts_top_block(gr.top_block):
     (options, args) = self.get_options()
     usrp_rate = 128000000
     usrp_interp = 400
-    tari_rate = 80000
-    run_usrp = True
+    tari_rate = 40000
+    gain = 1
+    run_usrp = False
 
     self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)
     if run_usrp:
@@ -82,7 +88,9 @@ class bts_top_block(gr.top_block):
     else:
       self.sink = downlink_test_file_sink(usrp_rate,usrp_interp)
 
-    self.connect(self.downlink,self.sink)
+    self.gain = gr.multiply_const_cc(gain)
+
+    self.connect(self.downlink, self.gain, self.sink)
 
   def get_options(self):
     parser = OptionParser(option_class=eng_option)

@@ -1,6 +1,7 @@
 from gnuradio import gr, eng_notation
 from gnuradio.eng_option import eng_option
 import rfidbts_swig as rfidbts
+import Gnuplot
 
 
 class downlink_src(gr.hier_block2):
@@ -12,19 +13,21 @@ class downlink_src(gr.hier_block2):
     self.pie_encoder = rfidbts.pie_encoder(2)
     #construct rrc filter
     #each half tari is a symbol
-    samples_per_symbol = usrp_rate / tari_rate * 2
-    print samples_per_symbol
+    samples_per_symbol = usrp_rate / tari_rate / 2
+
     gain = samples_per_symbol
     symbol_rate = 1.0
-    alpha = 0.02
-    ntaps = 41
+    alpha = 0.1
+    ntaps = 8 * samples_per_symbol
     self.rrc_taps = gr.firdes.root_raised_cosine(gain,samples_per_symbol,symbol_rate,alpha,ntaps)
+
     #construct interpolator
     interp_factor = samples_per_symbol
     self.rrc_interpolator = gr.interp_fir_filter_ccf(interp_factor, self.rrc_taps)
     #connect everything together
     self.connect(self.pie_encoder, self.rrc_interpolator, self)
-    #self.connect(self.pie_encoder,self)
+    #self.connect(self.pie_encoder, self.stretch, self.rrc_interpolator, self)
+
 
   def send_pkt(self, msg):
     #a pkt consists of a list of hex values. Want to conver it to a string of bits!

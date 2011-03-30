@@ -9,7 +9,7 @@ import os
 def plot_file(filename):
 	gp = Gnuplot.Gnuplot(persist=1)
 	gp2 = Gnuplot.Gnuplot(persist=1)
-	num_samples = 500
+	num_samples = 100
 
 	#The following commented code is to output to gnuplot
 	data = array.array('f')
@@ -31,7 +31,7 @@ def plot_file(filename):
 	data2 = Gnuplot.Data(data, title='Time plot')
 	gp2('set xlabel "Time (samples)"')
 	gp2('set ylabel "Magnitude"')	
-	gp2('set yrange [0:2]')
+	#gp2('set yrange [0:2]')
 	gp2('set style data lines')
 	gp2.plot(data2)
 	
