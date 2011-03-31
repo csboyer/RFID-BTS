@@ -3,6 +3,35 @@ from gnuradio.eng_option import eng_option
 import rfidbts_swig as rfidbts
 import Gnuplot
 
+class packet:
+  def __init__(self, data, numbits):
+    self.numbits = numbits
+    self.data = data
+
+  def to_bits(self):
+    #a pkt consists of a list of hex values. Want to conver it to a string of bits!
+    #get the frame/preamble flag from the front of the packet. 
+    #bitize everything else
+    bit_chunks = str(self.data.pop(0))
+    for byte in self.data:
+      byte_str = self.bin(byte)
+      for bit in byte_str:
+        bit_chunks = bit_chunks + str(int(bit))
+    print bit_chunks
+    return bit_chunks
+
+  def bin(self,s):
+    temp = ""
+    count = 1
+    for i in range(4):
+      if self.numbits > 0:
+        if count & s != 0:
+          temp = "1" + temp
+        else:
+          temp = "0" + temp
+        count = count * 2
+        self.numbits = self.numbits - 1
+    return temp
 
 class downlink_src(gr.hier_block2):
   def __init__(self,tari_rate,usrp_rate):
@@ -29,27 +58,8 @@ class downlink_src(gr.hier_block2):
     #self.connect(self.pie_encoder, self.stretch, self.rrc_interpolator, self)
 
 
-  def send_pkt(self, msg):
-    #a pkt consists of a list of hex values. Want to conver it to a string of bits!
-    #get the frame/preamble flag from the front of the packet. 
-    #bitize everything else
-    bit_chunks = str(msg.pop(0))
-    
-    for byte in msg:
-      byte_str = self.bin(byte)
-      for bit in byte_str:
-        bit_chunks = bit_chunks + str(int(bit))
+  def send_pkt(self, msg, numbits):
+    new_packet = packet(msg, numbits)
     #add bit chunks to queue
-    self.pie_encoder.msgq().insert_tail(gr.message_from_string(str(bit_chunks)))
-    
-  def bin(self,s):
-    temp = ""
-    count = 1
-    for i in range(4):
-      if count & s != 0:
-        temp = "1" + temp
-      else:
-        temp = "0" + temp
-      count = count * 2
-    return temp
+    self.pie_encoder.msgq().insert_tail(gr.message_from_string(new_packet.to_bits()))
 

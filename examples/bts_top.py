@@ -22,7 +22,7 @@ class downlink_test_file_sink(gr.hier_block2):
                             gr.io_signature(1,1,gr.sizeof_gr_complex),
                             gr.io_signature(0,0,0))
     self.c_to_f = gr.complex_to_real()
-    self.chop = gr.head(gr.sizeof_float, 2000)
+    self.chop = gr.head(gr.sizeof_float, 350)
     self.f = gr.file_sink(gr.sizeof_float,'output.dat')
 
     self.connect(self,self.c_to_f, self.chop,self.f)
@@ -109,60 +109,52 @@ class bts_top_block(gr.top_block):
 def main():
   #start executing code here
   tb = bts_top_block()
-  
-  try:
-    tb.downlink.send_pkt(get_pkt_test())
-    tb.run()
-    time.sleep(1) #sleep for 1 millisecond
-    tb.wait()
-    tb.stop()
-
-  except KeyboardInterrupt:
-    pass
+  code = get_code("query")
+  tb.downlink.send_pkt(list(code[0]), code[1])
+  tb.start()
+  control_loop(tb)
+  tb.wait()
+  tb.stop()
 
 def get_pkt_test():
 		return [0x4, 0xF, 0x0, 0xF, 0x0]
 
-# plots the data from filename.  The file must contain all floats.
-def plot_file(filename):
-	gp = Gnuplot.Gnuplot(persist=1)
-	gp2 = Gnuplot.Gnuplot(persist=1)
-	#The following commented code is to output to gnuplot
-	data = array.array('f')
-	outputF = open(filename)
-	data.fromfile(outputF, os.path.getsize(filename) / 4)
-	
-	gp('set style data lines')
-	gp('set xlabel "Frequency"')
-	gp('set ylabel "Magnitude"')
-	gp.plot(abs(fft(data)))
-	data2 = Gnuplot.Data(data, title='Plotting from Python')
-	gp2('set xlabel "Time (samples)"')
-	gp2('set ylabel "Magnitude"')	
-	gp2('set yrange [0:2]')
-	gp2('set style data lines')
-	gp2.plot(data2)
+# Returns a vector of bytes given the command string in com
+# Returns zero if the string is not found
+def get_code(com):
+	if com == "query":
+		return ([0x4, 0x8, 0x6, 0x0, 0x0, 0x8, 0x0], 22)
+	elif com == "com2":
+		return [0x5, 5, 6, 7, 8]
+	else:
+		return 0
 
-def to_add():
-
+def control_loop(tb):
+  pwr_on = True
+  com = "nothing"
   while com != "exit":
-
     com = raw_input("Command: ")
     if com == "start":
-		pwr_on = True
-		tb.start()
-		print("Sending power to device.")
+      if pwr_on == False:	
+        pwr_on = True
+        tb.start()
+	print("Sending power to device.")
+      else:
+        print "Power already on."
     elif com == "stop":
-      tb.stop()
-      tb.wait()
-      pwr_on = False
-      print("Stopped sending power.")
+      if pwr_on == true:
+        tb.stop()
+        tb.wait()
+        pwr_on = False
+        print("Stopped sending power.")
+      else:
+        print "Power not on"
     elif com != "exit":
       code = get_code(com)
 		# If the command is ok then output the bytes associated with it to the modulating block
 		# This works if the power is off or on.
       if code != 0:
-        tb.modulate.send_command(code)
+        tb.downlink.send_pkt(code[0], code[1])
         print("Command sent")		
       else:
         print("Uknown command.")
@@ -170,6 +162,4 @@ def to_add():
 #Go to main function
 if __name__ == "__main__":
   main()
-
-
 
