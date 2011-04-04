@@ -79,8 +79,8 @@ class bts_top_block(gr.top_block):
     usrp_rate = 128000000
     usrp_interp = 400
     tari_rate = 40000
-    gain = 1
-    run_usrp = False
+    gain = 10000
+    run_usrp = True
 
     self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)
     if run_usrp:
@@ -109,26 +109,28 @@ class bts_top_block(gr.top_block):
 def main():
   #start executing code here
   tb = bts_top_block()
-  code = get_code("query")
-  tb.downlink.send_pkt(list(code[0]), code[1])
   tb.start()
   control_loop(tb)
-  tb.wait()
   tb.stop()
 
 def get_pkt_test():
 		return [0x4, 0xF, 0x0, 0xF, 0x0]
 
-# Returns a vector of bytes given the command string in com
+# Returns a vector of bytes given the command string in com and the number of bits to transmit
 # Returns zero if the string is not found
 def get_code(com):
+	if com == "select":
+		return ([0x4, 0xA, 0x6, 0x0, 0x0, 0x8, 0x0], 22)
 	if com == "query":
-		return ([0x4, 0x8, 0x6, 0x0, 0x0, 0x8, 0x0], 22)
-	elif com == "com2":
-		return [0x5, 5, 6, 7, 8]
+		return ([0x5, 0x8
+, 0x6, 0x0, 0x0, 0x8, 0x0], 22)
+	elif com == "loop test":
+		a = [0x4, 1, 0]
+		return ([0x5, 0x8, 0x6, 0x0, 0x0, 0x8,0x0], 22)
 	else:
 		return 0
 
+# Controls the program flow.  Enter commands here.
 def control_loop(tb):
   pwr_on = True
   com = "nothing"
@@ -149,6 +151,12 @@ def control_loop(tb):
         print("Stopped sending power.")
       else:
         print "Power not on"
+    elif com == "loop":
+      x = 0
+      while x != 12:
+        if not tb.downlink.pie_encoder.msgq().full_p():
+          code = get_code("query")
+          tb.downlink.send_pkt(code[0], code[1])
     elif com != "exit":
       code = get_code(com)
 		# If the command is ok then output the bytes associated with it to the modulating block

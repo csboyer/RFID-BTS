@@ -8,6 +8,19 @@ class packet:
     self.numbits = numbits
     self.data = data
 
+def make_crc_5(bit_stream):
+    bit_loc = 1 << 31
+    poly = 0x29
+    polylength = 6
+    poly = poly << 32 - polylength
+    bit_stream = bit_stream << 5
+    for i in range(27):
+        if bit_loc & bit_stream:
+            bit_stream = bit_stream ^ poly
+        poly = poly >> 1
+        bit_loc = bit_loc >> 1
+    return bit_stream
+
   def to_bits(self):
     #a pkt consists of a list of hex values. Want to conver it to a string of bits!
     #get the frame/preamble flag from the front of the packet. 
@@ -17,7 +30,6 @@ class packet:
       byte_str = self.bin(byte)
       for bit in byte_str:
         bit_chunks = bit_chunks + str(int(bit))
-    print bit_chunks
     return bit_chunks
 
   def bin(self,s):
