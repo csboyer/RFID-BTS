@@ -8,6 +8,30 @@ class packet:
     self.numbits = numbits
     self.data = data
 
+  def bin(self,s):
+    temp = ""
+    count = 1
+    for i in range(4):
+      if self.numbits > 0:
+        if count & s != 0:
+          temp = "1" + temp
+        else:
+          temp = "0" + temp
+        count = count * 2
+        self.numbits = self.numbits - 1
+    return temp
+
+  def to_bits(self):
+    #a pkt consists of a list of hex values. Want to conver it to a string of bits!
+    #get the frame/preamble flag from the front of the packet. 
+    #bitize everything else
+    bit_chunks = str(self.data.pop(0))
+    for byte in self.data:
+      byte_str = self.bin(byte)
+      for bit in byte_str:
+        bit_chunks = bit_chunks + str(int(bit))
+    return bit_chunks
+
 def make_crc_5(bit_stream):
     bit_loc = 1 << 31
     poly = 0x29
@@ -21,29 +45,9 @@ def make_crc_5(bit_stream):
         bit_loc = bit_loc >> 1
     return bit_stream
 
-  def to_bits(self):
-    #a pkt consists of a list of hex values. Want to conver it to a string of bits!
-    #get the frame/preamble flag from the front of the packet. 
-    #bitize everything else
-    bit_chunks = str(self.data.pop(0))
-    for byte in self.data:
-      byte_str = self.bin(byte)
-      for bit in byte_str:
-        bit_chunks = bit_chunks + str(int(bit))
-    return bit_chunks
 
-  def bin(self,s):
-    temp = ""
-    count = 1
-    for i in range(4):
-      if self.numbits > 0:
-        if count & s != 0:
-          temp = "1" + temp
-        else:
-          temp = "0" + temp
-        count = count * 2
-        self.numbits = self.numbits - 1
-    return temp
+
+
 
 class downlink_src(gr.hier_block2):
   def __init__(self,tari_rate,usrp_rate):
@@ -65,6 +69,8 @@ class downlink_src(gr.hier_block2):
     #construct interpolator
     interp_factor = samples_per_symbol
     self.rrc_interpolator = gr.interp_fir_filter_ccf(interp_factor, self.rrc_taps)
+    #self.rrc_interpolator = gr.interp_fir_filter_ccf(1, self.rrc_taps)
+    #self.stretch = gr.repeat(gr.sizeof_gr_complex, interp_factor)
     #connect everything together
     self.connect(self.pie_encoder, self.rrc_interpolator, self)
     #self.connect(self.pie_encoder, self.stretch, self.rrc_interpolator, self)

@@ -50,7 +50,7 @@ class recieve_path(gr.hier_block2):
       self._set_status_msg("Failed to set initial frequency")
 
     #set up the rest of the path
-    self.c_to_f = gr.complex_to_real()
+    self.c_to_f = gr.complex_to_mag()
     self.skip = gr.skiphead (gr.sizeof_float, 30000)
     self.chop = gr.head(gr.sizeof_float, 200000)
     self.f = gr.file_sink(gr.sizeof_float,'outputrx.dat')
@@ -168,7 +168,7 @@ class bts_top_block(gr.top_block):
     usrp_rate = 128000000
     usrp_interp = 400
     tari_rate = 40000
-    gain = 10000
+    gain = .05
     run_usrp = True
 
     self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)
@@ -200,10 +200,13 @@ def main():
   tb = bts_top_block2()
 
   tb.start()
-  time.sleep(.005)  
-
+  time.sleep(.003)  
+  code = get_code("s")
+  tb.tx_path.downlink.send_pkt(code[0], code[1])
+  
   #Initially send something to the tag
-  code = get_code("query")
+  time.sleep(.004)  
+  code = get_code("q")
   tb.tx_path.downlink.send_pkt(code[0], code[1])
 
   control_loop(tb)
@@ -212,10 +215,10 @@ def main():
 # Returns a vector of bytes given the command string in com and the number of bits to transmit
 # Returns zero if the string is not found
 def get_code(com):
-	if com == "select":
-		return ([0x4, 0xA, 0x6, 0x0, 0x0, 0x8, 0x0], 22)
-	if com == "query":
-		return ([0x5, 0x8, 0x6, 0x0, 0x0, 0x8, 0x0], 22)
+	if com == "s":
+		return ([0x5, 0xA, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0], 45)
+	if com == "q":
+		return ([0x4, 0x8, 0x6, 0x0, 0x0, 0xD, 0x0], 22)
 	elif com == "loop test":
 		a = [0x4, 1, 0]
 		return ([0x5, 0x8, 0x6, 0x0, 0x0, 0x8,0x0], 22)
