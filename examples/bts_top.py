@@ -50,9 +50,11 @@ class recieve_path(gr.hier_block2):
       self._set_status_msg("Failed to set initial frequency")
 
     #set up the rest of the path
+    skip = 10000
+    total = 200000
     self.c_to_f = gr.complex_to_mag()
-    self.skip = gr.skiphead (gr.sizeof_float, 30000)
-    self.chop = gr.head(gr.sizeof_float, 200000)
+    self.skip = gr.skiphead (gr.sizeof_float, skip)
+    self.chop = gr.head(gr.sizeof_float, total)
     self.f = gr.file_sink(gr.sizeof_float,'outputrx.dat')
 
     self.connect(self.u, self.c_to_f, self.skip, self.chop, self.f)
@@ -134,7 +136,8 @@ class downlink_usrp_sink(gr.hier_block2):
     self.u.set_interp_rate(usrp_interp)
 
     #set max tx gain
-    self.subdev.set_gain(self.subdev.gain_range()[1])
+    print self.subdev.gain_range()[2]
+    self.subdev.set_gain(self.subdev.gain_range()[2])
     
     #setup frequency
     if not self.set_freq(options.freq):
@@ -168,7 +171,7 @@ class bts_top_block(gr.top_block):
     usrp_rate = 128000000
     usrp_interp = 400
     tari_rate = 40000
-    gain = .05
+    gain = 2 << 15
     run_usrp = True
 
     self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)

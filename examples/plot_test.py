@@ -9,7 +9,7 @@ import os
 def plot_file(filename):
 	gp = Gnuplot.Gnuplot(persist=1)
 	gp2 = Gnuplot.Gnuplot(persist=1)
-	num_samples = 43850
+	num_samples = 60000
 
 	#The following commented code is to output to gnuplot
 	data = array.array('f')
@@ -27,7 +27,7 @@ def plot_file(filename):
 	data3 = Gnuplot.Data(list(time),norm, title='Time plot')
 	#gp.plot(data3)
 
-        shift = 43450
+        shift = 30000
   
         maxval = max(data)
         data = [data[i] / maxval for i in range(num_samples)]
