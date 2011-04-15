@@ -37,25 +37,27 @@ class recieve_path(gr.hier_block2):
     #Set up usrp block
     self.u = usrp.source_c()
     adc_rate = self.u.adc_rate()                # 64 MS/s
-    usrp_decim = 200
+    usrp_decim = 25
     gain = 65
     self.u.set_decim_rate(usrp_decim)
     usrp_rate = adc_rate / usrp_decim           #  320 kS/s
-    subdev_spec = usrp.pick_subdev(self.u)
+    print usrp_rate
+    #subdev_spec = usrp.pick_subdev(self.u)
+    subdev_spec = (0,0)
     mux_value = usrp.determine_rx_mux_value(self.u, subdev_spec)
     self.u.set_mux(mux_value)
     self.subdev = usrp.selected_subdev(self.u, subdev_spec)
     self.subdev.set_gain(gain)
     if not(self.set_freq(915e6)):	
-      self._set_status_msg("Failed to set initial frequency")
+      print "Failed to set initial frequency"
 
     #set up the rest of the path
-    skip = 10000
-    total = 200000
+    skip = 600000
+    total = 1700000
     self.c_to_f = gr.complex_to_mag()
     self.skip = gr.skiphead (gr.sizeof_float, skip)
     self.chop = gr.head(gr.sizeof_float, total)
-    self.f = gr.file_sink(gr.sizeof_float,'outputrx.dat')
+    self.f = gr.file_sink(gr.sizeof_float,'outputrx1.dat')
 
     self.connect(self.u, self.c_to_f, self.skip, self.chop, self.f)
 
@@ -82,7 +84,8 @@ class transmit_path(gr.hier_block2):
     usrp_rate = 128000000
     usrp_interp = 400
     tari_rate = 40000
-    gain = 10000
+    gain = 4000
+
     run_usrp = True
     self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)
     if run_usrp:
@@ -127,7 +130,8 @@ class downlink_usrp_sink(gr.hier_block2):
     self.u = usrp.sink_c()
 
     #setup daughter boards
-    subdev_spec = usrp.pick_tx_subdevice(self.u)
+    #subdev_spec = usrp.pick_tx_subdevice(self.u)
+    subdev_spec = (1, 0)
     self.subdev = usrp.selected_subdev(self.u,subdev_spec)
     self.u.set_mux(usrp.determine_tx_mux_value(self.u,subdev_spec))
     print "Using TX d'board %s" % (self.subdev.side_and_name(),)
@@ -136,8 +140,8 @@ class downlink_usrp_sink(gr.hier_block2):
     self.u.set_interp_rate(usrp_interp)
 
     #set max tx gain
-    print self.subdev.gain_range()[2]
-    self.subdev.set_gain(self.subdev.gain_range()[2])
+    #print self.subdev.gain_range()[1]
+    #self.subdev.set_gain(self.subdev.gain_range()[1])
     
     #setup frequency
     if not self.set_freq(options.freq):
@@ -164,52 +168,16 @@ class downlink_usrp_sink(gr.hier_block2):
     
     return False
 
-class bts_top_block(gr.top_block):
-  def __init__(self):
-    gr.top_block.__init__(self)
-    (options, args) = self.get_options()
-    usrp_rate = 128000000
-    usrp_interp = 400
-    tari_rate = 40000
-    gain = 2 << 15
-    run_usrp = True
-
-    self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)
-    if run_usrp:
-      self.sink = downlink_usrp_sink(options,usrp_rate,usrp_interp,tari_rate)
-    else:
-      self.sink = downlink_test_file_sink(usrp_rate,usrp_interp)
-
-    self.gain = gr.multiply_const_cc(gain)
-
-    self.connect(self.downlink, self.gain, self.sink)
-
-  def get_options(self):
-    parser = OptionParser(option_class=eng_option)
-
-    parser.add_option("-f", "--freq", type="eng_float", default=915e6,
-                      help="Select frequency (default=%default)")
-		      
-    (options, args) = parser.parse_args()
-    if len(args) != 0:
-        parser.print_help()
-        sys.exit(1)
-	
-
-    return (options, args)
     
 def main():
   #start executing code here
   tb = bts_top_block2()
 
   tb.start()
-  time.sleep(.003)  
-  code = get_code("s")
-  tb.tx_path.downlink.send_pkt(code[0], code[1])
   
   #Initially send something to the tag
-  time.sleep(.004)  
-  code = get_code("q")
+  time.sleep(.03)  
+  code = get_code("q1")
   tb.tx_path.downlink.send_pkt(code[0], code[1])
 
   control_loop(tb)
@@ -221,7 +189,9 @@ def get_code(com):
 	if com == "s":
 		return ([0x5, 0xA, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0], 45)
 	if com == "q":
-		return ([0x4, 0x8, 0x6, 0x0, 0x0, 0xD, 0x0], 22)
+		return ([0x4, 0x8, 0x5, 0x0, 0x0, 0x7, 0x3], 22)
+	if com == "q1":
+		return ([0x4, 0x8, 0x6, 0x0, 0x0, 0x1, 0xD], 22)
 	elif com == "loop test":
 		a = [0x4, 1, 0]
 		return ([0x5, 0x8, 0x6, 0x0, 0x0, 0x8,0x0], 22)
@@ -232,7 +202,7 @@ def get_code(com):
 def control_loop(tb):
   pwr_on = True
   com = "nothing"
-  while com != "exit":
+  while com != "e":
     com = raw_input("Command: ")
     if com == "start":
       if pwr_on == False:	
@@ -255,7 +225,7 @@ def control_loop(tb):
         if not tb.tx_path.downlink.pie_encoder.msgq().full_p():
           code = get_code("query")
           tb.tx_path.downlink.send_pkt(code[0], code[1])
-    elif com != "exit":
+    elif com != "e":
       code = get_code(com)
 		# If the command is ok then output the bytes associated with it to the modulating block
 		# This works if the power is off or on.
