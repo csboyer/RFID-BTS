@@ -37,7 +37,7 @@ class recieve_path(gr.hier_block2):
     #Set up usrp block
     self.u = usrp.source_c()
     adc_rate = self.u.adc_rate()                # 64 MS/s
-    usrp_decim = 25
+    usrp_decim = 16
     gain = 65
     self.u.set_decim_rate(usrp_decim)
     usrp_rate = adc_rate / usrp_decim           #  320 kS/s
@@ -48,12 +48,16 @@ class recieve_path(gr.hier_block2):
     self.u.set_mux(mux_value)
     self.subdev = usrp.selected_subdev(self.u, subdev_spec)
     self.subdev.set_gain(gain)
+    self.subdev.set_auto_tr(False)
+    self.subdev.set_enable(True)
+
     if not(self.set_freq(915e6)):	
       print "Failed to set initial frequency"
 
     #set up the rest of the path
-    skip = 600000
-    total = 1700000
+    #skip = 600000
+    skip = 0
+    total = 2000000
     self.c_to_f = gr.complex_to_mag()
     self.skip = gr.skiphead (gr.sizeof_float, skip)
     self.chop = gr.head(gr.sizeof_float, total)
@@ -82,16 +86,24 @@ class transmit_path(gr.hier_block2):
 
     # constants for usrp
     usrp_rate = 128000000
-    usrp_interp = 400
+    usrp_interp = 256
     tari_rate = 40000
-    gain = 4000
+    gain = 1
 
     run_usrp = True
-    self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)
+
+    testit = True
+    if testit:
+      self.downlink = gr.file_source(gr.sizeof_gr_complex, "readout.dat", False)
+    else:
+      self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)
+
     if run_usrp:
       self.sink = downlink_usrp_sink(options,usrp_rate,usrp_interp,tari_rate)
     else:
       self.sink = downlink_test_file_sink(usrp_rate,usrp_interp)
+
+
 
     self.gain = gr.multiply_const_cc(gain)
 
@@ -102,6 +114,7 @@ class bts_top_block2(gr.top_block):
   def __init__(self):
     (options, args) = self.get_options()
     gr.top_block.__init__(self)
+
     self.tx_path = transmit_path(options)
     self.rx_path = recieve_path(options)
     self.connect(self.tx_path)
@@ -121,6 +134,7 @@ class bts_top_block2(gr.top_block):
 
     return (options, args)
 
+# downlink block.  Contains the usrp block in a single package
 class downlink_usrp_sink(gr.hier_block2):
   def __init__(self,options,usrp_rate,usrp_interp,tari_rate):
     gr.hier_block2.__init__(self,"downlink_usrp_sink",
@@ -138,10 +152,7 @@ class downlink_usrp_sink(gr.hier_block2):
 
     #set interp rate
     self.u.set_interp_rate(usrp_interp)
-
-    #set max tx gain
-    #print self.subdev.gain_range()[1]
-    #self.subdev.set_gain(self.subdev.gain_range()[1])
+    self.subdev.set_gain(self.subdev.gain_range()[2])
     
     #setup frequency
     if not self.set_freq(options.freq):
@@ -172,6 +183,8 @@ class downlink_usrp_sink(gr.hier_block2):
 def main():
   #start executing code here
   tb = bts_top_block2()
+  tb.run()
+  return
 
   tb.start()
   
