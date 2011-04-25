@@ -56,14 +56,22 @@ class recieve_path(gr.hier_block2):
 
     #set up the rest of the path
     #skip = 600000
-    skip = 0
-    total = 2000000
-    self.c_to_f = gr.complex_to_mag()
-    self.skip = gr.skiphead (gr.sizeof_float, skip)
-    self.chop = gr.head(gr.sizeof_float, total)
-    self.f = gr.file_sink(gr.sizeof_float,'outputrx1.dat')
+    skip = 420000
+    total = 3000000
+    sw_dec = 5
+    self.c_to_f = gr.complex_to_real()
+    self.skip = gr.skiphead (gr.sizeof_gr_complex, skip)
+    self.chop = gr.head(gr.sizeof_gr_complex, total)
+    self.f = gr.file_sink(gr.sizeof_gr_complex,'outputrx1.dat')
+    self.f2 = gr.file_sink(gr.sizeof_float,'outputrx2.dat')
+    self.complex_to_angle = gr.complex_to_arg()
+    num_taps = int(64000 / ( (usrp_decim * 4) * 40 )) #Filter matched to 1/4 of the 40 kHz tag cycle
+    taps = [complex(1,1)] * num_taps
+    matched_filt = gr.fir_filter_ccc(sw_dec, taps);  
+    agc = gr.agc2_cc(0.3, 1e-3, 1, 1, 100) 
 
-    self.connect(self.u, self.c_to_f, self.skip, self.chop, self.f)
+    self.connect(self.u, self.skip, self.chop, self.f)
+    self.connect(self.chop, self.complex_to_angle, self.f2)
 
   def set_freq(self,target_freq):
     r = self.u.tune(self.subdev.which(),self.subdev,target_freq)
@@ -88,13 +96,13 @@ class transmit_path(gr.hier_block2):
     usrp_rate = 128000000
     usrp_interp = 256
     tari_rate = 40000
-    gain = 1
+    gain = 5000
 
     run_usrp = True
 
-    testit = True
+    testit = False
     if testit:
-      self.downlink = gr.file_source(gr.sizeof_gr_complex, "readout.dat", False)
+      self.downlink = gr.file_source(gr.sizeof_gr_complex, "readout.dat", True)
     else:
       self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)
 
@@ -183,14 +191,12 @@ class downlink_usrp_sink(gr.hier_block2):
 def main():
   #start executing code here
   tb = bts_top_block2()
-  tb.run()
-  return
 
   tb.start()
   
   #Initially send something to the tag
-  time.sleep(.03)  
-  code = get_code("q1")
+  time.sleep(.1)  
+  code = get_code("q")
   tb.tx_path.downlink.send_pkt(code[0], code[1])
 
   control_loop(tb)

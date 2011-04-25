@@ -81,7 +81,7 @@ void rfidbts_pie_encoder::bit_to_pie(gr_message_sptr command)
 	unsigned char *bit_buffer;
 	bit_buffer = command->msg(); 
 	int rt_cal = 3;
-	int tr_cal = 7;
+	int tr_cal = 7.5;
 
 	// encode preamble or frame sync
 	if (bit_buffer[0] == '4') {  // preamble
