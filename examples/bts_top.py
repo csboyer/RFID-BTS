@@ -59,7 +59,7 @@ class recieve_path(gr.hier_block2):
     skip = 420000
     total = 3000000
     sw_dec = 5
-    self.c_to_f = gr.complex_to_real()
+    #self.c_to_f = gr.complex_to_real()
     self.skip = gr.skiphead (gr.sizeof_gr_complex, skip)
     self.chop = gr.head(gr.sizeof_gr_complex, total)
     self.f = gr.file_sink(gr.sizeof_gr_complex,'outputrx1.dat')
@@ -197,7 +197,7 @@ def main():
   #Initially send something to the tag
   time.sleep(.1)  
   code = get_code("q")
-  tb.tx_path.downlink.send_pkt(code[0], code[1])
+  tb.tx_path.downlink.send_pkt(code)
 
   control_loop(tb)
   tb.stop()
@@ -205,10 +205,15 @@ def main():
 # Returns a vector of bytes given the command string in com and the number of bits to transmit
 # Returns zero if the string is not found
 def get_code(com):
-	if com == "s":
-		return ([0x5, 0xA, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0], 45)
+	if com[0] == "s":
+		if len(com) > 2:
+			return ("4" + com[2:len(com)])
+		else:
+			return 0
 	if com == "q":
-		return ([0x4, 0x8, 0x5, 0x0, 0x0, 0x7, 0x3], 22)
+		return ("410000101000001111")
+	if com == "q2":
+		return ([0x4, 0x8, 0x5, 0x0, 0x7, 0xF, 0x3], 22)
 	if com == "q1":
 		return ([0x4, 0x8, 0x6, 0x0, 0x0, 0x1, 0xD], 22)
 	elif com == "loop test":
@@ -242,14 +247,14 @@ def control_loop(tb):
       x = 0
       while x != 12:
         if not tb.tx_path.downlink.pie_encoder.msgq().full_p():
-          code = get_code("query")
-          tb.tx_path.downlink.send_pkt(code[0], code[1])
+          code = get_code("q")
+          tb.tx_path.downlink.send_pkt(code)
     elif com != "e":
       code = get_code(com)
 		# If the command is ok then output the bytes associated with it to the modulating block
 		# This works if the power is off or on.
       if code != 0:
-        tb.tx_path.downlink.send_pkt(code[0], code[1])
+        tb.tx_path.downlink.send_pkt(code)
         print("Command sent")		
       else:
         print("Uknown command.")

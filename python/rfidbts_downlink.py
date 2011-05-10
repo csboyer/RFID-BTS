@@ -46,7 +46,23 @@ def make_crc_5(bit_stream):
     return bit_stream
 
 
+def make2_crc_5(bit_stream):
+    bit_stream2 = bit_stream + "00000"
+    poly = "101001"
+    for i in range(len(bit_stream)):
+        if bit_stream2[0] == "1":
+            bit_stream2 = string_xor(bit_stream2[0:6], poly) + bit_stream2[6:]
+        bit_stream2 = bit_stream2[1:]
+    return bit_stream2
 
+def string_xor(str1, str2):
+    out = ""
+    for i in range(len(str1)):
+        if str1[i] != str2[i]:
+            out = out[:(i)] + '1' + out[(i+1):]
+        else:
+            out = out[:(i)] + '0' + out[(i+1):]   
+    return out
 
 
 class downlink_src(gr.hier_block2):
@@ -77,8 +93,7 @@ class downlink_src(gr.hier_block2):
     #self.connect(self.pie_encoder, self.stretch, self.rrc_interpolator, self)
 
 
-  def send_pkt(self, msg, numbits):
-    new_packet = packet(msg, numbits)
+  def send_pkt(self, msg):
     #add bit chunks to queue
-    self.pie_encoder.msgq().insert_tail(gr.message_from_string(new_packet.to_bits()))
+    self.pie_encoder.msgq().insert_tail(gr.message_from_string(msg + make2_crc_5(msg)))
 
