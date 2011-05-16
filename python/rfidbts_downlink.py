@@ -32,20 +32,7 @@ class packet:
         bit_chunks = bit_chunks + str(int(bit))
     return bit_chunks
 
-def make_crc_5(bit_stream):
-    bit_loc = 1 << 31
-    poly = 0x29
-    polylength = 6
-    poly = poly << 32 - polylength
-    bit_stream = bit_stream << 5
-    for i in range(27):
-        if bit_loc & bit_stream:
-            bit_stream = bit_stream ^ poly
-        poly = poly >> 1
-        bit_loc = bit_loc >> 1
-    return bit_stream
-
-
+# given a string of bit inputs makes a crc of command
 def make2_crc_5(bit_stream):
     bit_stream2 = bit_stream + "00000"
     poly = "101001"
@@ -55,6 +42,7 @@ def make2_crc_5(bit_stream):
         bit_stream2 = bit_stream2[1:]
     return bit_stream2
 
+# xor on two equal length strings of bit representations
 def string_xor(str1, str2):
     out = ""
     for i in range(len(str1)):
@@ -71,7 +59,7 @@ class downlink_src(gr.hier_block2):
                             gr.io_signature(0, 0, 0), #input is command to send to tag
                             gr.io_signature(1, 1, gr.sizeof_gr_complex)) #output is complex baseband to sink
     #declare pie encoder
-    self.pie_encoder = rfidbts.pie_encoder(2)
+    self.pie_encoder = rfidbts.pie_encoder(10)
     #construct rrc filter
     #each half tari is a symbol
     samples_per_symbol = usrp_rate / tari_rate / 2
@@ -95,5 +83,6 @@ class downlink_src(gr.hier_block2):
 
   def send_pkt(self, msg):
     #add bit chunks to queue
-    self.pie_encoder.msgq().insert_tail(gr.message_from_string(msg + make2_crc_5(msg)))
+    self.pie_encoder.msgq().insert_tail(gr.message_from_string(msg ))
+    #self.pie_encoder.msgq().insert_tail(gr.message_from_string(msg + make2_crc_5(msg[1:])))
 

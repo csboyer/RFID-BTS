@@ -197,10 +197,42 @@ def main():
   #Initially send something to the tag
   time.sleep(.1)  
   code = get_code("q")
+  code2 = get_code("ak")
   tb.tx_path.downlink.send_pkt(code)
+  tb.tx_path.downlink.send_pkt(code2)
+  #for i in range(10):
+  #    tb.tx_path.downlink.send_pkt(code)
+  #    tb.tx_path.downlink.send_pkt(code2)
+  #    tb.tx_path.downlink.send_pkt(code2)
 
   control_loop(tb)
   tb.stop()
+
+# given a string of bit inputs makes a crc of command
+def make3_crc_5(bit_stream):
+    preset = "01001"
+    register = "01001"
+    flag = True
+    for i in range(len(bit_stream)):
+        if register[0] == bit_stream[0]:
+            flag = False
+        else:
+            flag = True
+        register = register[1:] + "0"
+        bit_stream = bit_stream[1:]
+        if flag:
+            register = string_xor(register, preset)
+    return register
+
+# xor on two equal length strings of bit representations
+def string_xor(str1, str2):
+    out = ""
+    for i in range(len(str1)):
+        if str1[i] != str2[i]:
+            out = out[:(i)] + '1' + out[(i+1):]
+        else:
+            out = out[:(i)] + '0' + out[(i+1):]   
+    return out
 
 # Returns a vector of bytes given the command string in com and the number of bits to transmit
 # Returns zero if the string is not found
@@ -211,7 +243,13 @@ def get_code(com):
 		else:
 			return 0
 	if com == "q":
-		return ("410000101000001111")
+		stream = "410000101000000111"
+		return (stream + make3_crc_5(stream[1:]))
+		#return stream
+	if com == "ak":
+		return ("5010000000000000111")
+	if com == "qr":
+		return ("50001")
 	if com == "q2":
 		return ([0x4, 0x8, 0x5, 0x0, 0x7, 0xF, 0x3], 22)
 	if com == "q1":

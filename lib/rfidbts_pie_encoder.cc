@@ -36,6 +36,8 @@
 #include <stdexcept>
 #include <string.h>
 
+int MINDELAY = 90;
+
 using namespace std;
 // public constructor that returns a shared_ptr
 
@@ -59,6 +61,7 @@ rfidbts_pie_encoder::rfidbts_pie_encoder (int msgq_limit)
     d_msgq(gr_make_msg_queue(msgq_limit)),
     d_eof(false)
 {
+	endcounter = 0;
 }
 
 rfidbts_pie_encoder::rfidbts_pie_encoder (gr_msg_queue_sptr msgq)
@@ -68,6 +71,7 @@ rfidbts_pie_encoder::rfidbts_pie_encoder (gr_msg_queue_sptr msgq)
     d_msgq(msgq), 
     d_eof(false)
 {
+	endcounter = 0;
 }
 
 rfidbts_pie_encoder::~rfidbts_pie_encoder()
@@ -150,9 +154,10 @@ rfidbts_pie_encoder::general_work(int noutput_items,
       memcpy (out, &pie_sample, sizeof(gr_complex));
       nn++;
       out += sizeof(gr_complex);
+      if(d_pie_symbols.empty()) endcounter = 0;
     } 
     //no more samples to send, check queue for a new message
-    else if (!d_msgq->empty_p()){
+    else if (!d_msgq->empty_p() && endcounter > MINDELAY){
       gr_message_sptr msg = d_msgq->delete_head();
       //check to see if the message is end of file, if so set flag and return the samples so far
       if (msg->type() == 1){
@@ -168,6 +173,7 @@ rfidbts_pie_encoder::general_work(int noutput_items,
       memcpy (out, &sample_1, sizeof(gr_complex));
       out += sizeof(gr_complex);
       nn++;
+      endcounter++;
     }
   }
 

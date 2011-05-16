@@ -41,7 +41,7 @@ rfidbts_pie_encoder_sptr rfidbts_make_pie_encoder (gr_msg_queue_sptr msgq);
 class rfidbts_pie_encoder : public gr_block
 {
  private:
-
+  int endcounter;
   gr_msg_queue_sptr	d_msgq;
 
   bool			d_eof;
