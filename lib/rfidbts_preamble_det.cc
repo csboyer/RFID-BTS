@@ -96,6 +96,7 @@ int rfidbits_preamble_det::general_work(int noutput_items,
               if(in[0][i] > 0) temp += 2;
               if(in[0][i+1] > 0) temp += 1;
               out[j++] = temp;
+              temp = 0;
               numbits++;   
               i++;
           else {
