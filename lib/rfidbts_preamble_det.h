@@ -31,8 +31,8 @@ private:
   enum { ST_MUTED, ST_UNMUTED} d_state;
   std::list<char> preamble;
   std::list<char> buffer;
-  MAXBITS = 16;
-
+  int MAXBITS = 16;
+  float invert = 1;
   friend rfidbits_preamble_det_sptr
   rfidbits_make_preamble_det();
 

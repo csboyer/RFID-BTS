@@ -37,13 +37,15 @@ rfidbits_make_preamble_det()
 
 rfidbits_preamble_det::rfidbits_preamble_detection() : 
 	gr_block("detector",
-	         gr_make_io_signature(2, 2, sizeof(float)),
+	         gr_make_io_signature(1, 1, sizeof(float)),
 	         gr_make_io_signature(1, 1, sizeof(float)))
 {
   
   d_state = ST_MUTED;
   numbits = 0;
-  preamble.push_back(1);
+  preamble = {1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, 1, 1, -1, -1, 1};
+  preamblei = {-1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, -1, -1, 1, 1, -1};
+  /*preamble.push_back(1);
   preamble.push_back(1);
   preamble.push_back(1);
   preamble.push_back(1);
@@ -58,9 +60,9 @@ rfidbits_preamble_det::rfidbits_preamble_detection() :
   preamble.push_back(1);
   preamble.push_back(-1);
   preamble.push_back(-1);
-  preamble.push_back(1);
-  
-  for( int i = 0; i < 16; i++) {
+  preamble.push_back(1);*/
+
+  for( int i = 0; i < preamble.size(); i++) {
     buffer.push_back(0);
   }
   
@@ -79,28 +81,35 @@ int rfidbits_preamble_det::general_work(int noutput_items,
 
   for (int i = 0; i < noutput_items; i++) {
 
-    // Adjust envelope based on current state
+    // State determines whether to put data out
     switch(d_state) {
       case ST_MUTED:
-          if(in[0][i] < 0) { // add to the preable buffer
+          if(in[i] < 0) { // add to the preable buffer
             buffer.push_back(-1);
           } else {
             buffer.push_back(1);
           }
           buffer.pop_front();
-          if(preamble == buffer)
+          if((preamble == buffer) || (buffer == preamblei)) {
+            if (preamble == buffer) {
+              invert = 1;
+            } else {
+              invert = -1;
+            }
             d_state = ST_UNMUTED;
+          }
 
       case ST_UNMUTED:
           if(numbits < MAXBITS) {
-              if(in[0][i] > 0) temp += 2;
-              if(in[0][i+1] > 0) temp += 1;
+              if(in[i] * invert > 0) temp += 2;
+              if(in[i+1] * invert > 0) temp += 1;
               out[j++] = temp;
               temp = 0;
               numbits++;   
               i++;
           else {
               d_state = ST_MUTED;
+              numbits = 0;
           }
 
     };
