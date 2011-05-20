@@ -24,12 +24,12 @@
 #include <gr_block.h>
 #include <list>
 
-class rfidbits_preamble_det;
-typedef boost::shared_ptr<rfidbits_preamble_det> rfidbits_preamble_det_sptr;
+class rfidbts_preamble_det;
+typedef boost::shared_ptr<rfidbts_preamble_det> rfidbts_preamble_det_sptr;
 
-rfidbits_preamble_det_sptr rfidbits_make_preamble_det ();
+rfidbts_preamble_det_sptr rfidbts_make_preamble_det ();
 
-class rfidbits_preamble_det : public gr_block
+class rfidbts_preamble_det : public gr_block
 {
 private:
 
@@ -38,14 +38,16 @@ private:
   std::list<int> preamble;
   std::list<int> preamblei;
   std::list<int> buffer;
+  bool highbit;
+  int temp;
   int MAXBITS;
   float invert;
   int numbits;
-  friend rfidbits_preamble_det_sptr
-  rfidbits_make_preamble_det();
+  friend rfidbts_preamble_det_sptr
+  rfidbts_make_preamble_det();
 
 protected:
-  rfidbits_preamble_det ();
+  rfidbts_preamble_det ();
 
 public:
 

@@ -26,16 +26,18 @@
 
 #include "rfidbts_preamble_det.h"
 #include <gr_io_signature.h>
+#include <stdio.h>
+#include <list>
 
 
 // public constructor that takes existing message queue
-rfidbits_preamble_det_sptr
-rfidbits_make_preamble_det()
+rfidbts_preamble_det_sptr
+rfidbts_make_preamble_det()
 {
-  return rfidbits_preamble_det_sptr(new rfidbits_preamble_det());
+  return rfidbts_preamble_det_sptr(new rfidbts_preamble_det());
 }
 
-rfidbits_preamble_det::rfidbits_preamble_det() : 
+rfidbts_preamble_det::rfidbts_preamble_det() : 
 	gr_block("detector",
 	         gr_make_io_signature(1, 1, sizeof(float)),
 	         gr_make_io_signature(1, 1, sizeof(float)))
@@ -44,6 +46,8 @@ rfidbits_preamble_det::rfidbits_preamble_det() :
   d_state = ST_MUTED;
   numbits = 0;
   invert = 1;
+  highbit = true;
+  temp = 0;
  
   preamble.push_back(1);
   preamble.push_back(1);
@@ -78,14 +82,22 @@ rfidbits_preamble_det::rfidbits_preamble_det() :
   preamblei.push_back(-1);
   preamblei.push_back(-1);
   preamblei.push_back(1);
-
+  preamblei.reverse();
+  MAXBITS = 16;
   for( int i = 0; i < preamble.size(); i++) {
     buffer.push_back(0);
   }
   
 }
 
-int rfidbits_preamble_det::general_work(int noutput_items,
+/*bool isequal(std::list<int> l1, std::list<int> l2) {
+  for(int i = 0; i < l1.size(); i++) {
+    if( l1.valueat(i) != l2.valueat(i) ) return false;
+  }
+  return true;
+} */
+
+int rfidbts_preamble_det::general_work(int noutput_items,
 				     gr_vector_int &ninput_items,
 				     gr_vector_const_void_star &input_items,
 				     gr_vector_void_star &output_items)
@@ -94,21 +106,19 @@ int rfidbits_preamble_det::general_work(int noutput_items,
   float *out = (float *) output_items[0];
 
   int j = 0;
-  float temp = 0;
 
   for (int i = 0; i < noutput_items; i++) {
 
     // State determines whether to put data out
-    switch(d_state) {
-      case ST_MUTED:
+    if (d_state == ST_MUTED) {
           if(in[i] < 0) { // add to the preable buffer
             buffer.push_back(-1);
           } else {
             buffer.push_back(1);
           }
           buffer.pop_front();
-          if((preamble == buffer) || (buffer == preamblei)) {
-            if (preamble == buffer) {
+          if((buffer==preamble) || (buffer==preamblei)) {
+            if ((preamble == buffer)) {
               invert = 1;
             } else {
               invert = -1;
@@ -116,20 +126,24 @@ int rfidbits_preamble_det::general_work(int noutput_items,
             d_state = ST_UNMUTED;
           }
 
-      case ST_UNMUTED:
+     } else {
           if(numbits < MAXBITS) {
-              if(in[i] * invert > 0) temp += 2;
-              if(in[i+1] * invert > 0) temp += 1;
-              out[j++] = temp;
-              temp = 0;
-              numbits++;   
-              i++;
+              if(highbit) {
+                if(in[i] * invert > 0) temp += 2;
+                highbit = false;
+              } else {
+                if(in[i] * invert > 0) temp += 1;
+                out[j++] = temp;
+                temp = 0;
+                numbits++;
+                highbit = true;
+              }
           } else {
               d_state = ST_MUTED;
               numbits = 0;
           }
 
-    };
+    }
   }
 
   consume_each(noutput_items);  // Use all the inputs

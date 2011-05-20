@@ -5,8 +5,7 @@
 
 %{
 #include "rfidbts_pie_encoder.h"
-#include "rfidbts_preamble_det.h"
-
+//#include "rfidbts_preamble_det.h"
 %}
 
 %include "rfidbts_downlink.i"

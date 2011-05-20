@@ -48,6 +48,7 @@ no_dist_files = $(swig_built_sources)
 
 # additional SWIG files to be installed
 rfidbts_swiginclude_headers = \
-	rfidbts_downlink.i 
+	rfidbts_downlink.i \
+	rfidbts_preamble_det.i
 
 endif
