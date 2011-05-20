@@ -20,10 +20,15 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "gnuradio.i"
+%include "exception.i"
+%import "gnuradio.i"
+
 %{
-#include "rfidbits_preamble_det.h"
+#include "gnuradio_swig_bug_workaround.h" 
+#include "rfidbts_preamble_det.h"
+#include <stdexcept>
 %}
+
 
 GR_SWIG_BLOCK_MAGIC(rfidbts,preamble_det);
 rfidbits_preamble_det_sptr rfidbits_make_preamble_det ();
@@ -32,6 +37,5 @@ class rfidbits_preamble_det : public gr_block
 {
  protected:
   rfidbits_preamble_det();
- public:
 };
 

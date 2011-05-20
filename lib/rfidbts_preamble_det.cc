@@ -24,7 +24,7 @@
 #include "config.h"
 #endif
 
-#include <rfidbits_preamble_det.h>
+#include "rfidbts_preamble_det.h"
 #include <gr_io_signature.h>
 
 
@@ -35,7 +35,7 @@ rfidbits_make_preamble_det()
   return rfidbits_preamble_det_sptr(new rfidbits_preamble_det());
 }
 
-rfidbits_preamble_det::rfidbits_preamble_detection() : 
+rfidbits_preamble_det::rfidbits_preamble_det() : 
 	gr_block("detector",
 	         gr_make_io_signature(1, 1, sizeof(float)),
 	         gr_make_io_signature(1, 1, sizeof(float)))
@@ -43,24 +43,41 @@ rfidbits_preamble_det::rfidbits_preamble_detection() :
   
   d_state = ST_MUTED;
   numbits = 0;
-  preamble = {1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, 1, 1, -1, -1, 1};
-  preamblei = {-1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, -1, -1, 1, 1, -1};
-  /*preamble.push_back(1);
+  invert = 1;
+ 
   preamble.push_back(1);
   preamble.push_back(1);
   preamble.push_back(1);
   preamble.push_back(1);
   preamble.push_back(1);
-  preamble.push_back(1);
-  preamble.push_back(-1);
-  preamble.push_back(-1);
-  preamble.push_back(-1);
-  preamble.push_back(-1);
   preamble.push_back(1);
   preamble.push_back(1);
   preamble.push_back(-1);
   preamble.push_back(-1);
-  preamble.push_back(1);*/
+  preamble.push_back(-1);
+  preamble.push_back(-1);
+  preamble.push_back(1);
+  preamble.push_back(1);
+  preamble.push_back(-1);
+  preamble.push_back(-1);
+  preamble.push_back(1);
+
+  preamblei.push_back(1);
+  preamblei.push_back(1);
+  preamblei.push_back(1);
+  preamblei.push_back(1);
+  preamblei.push_back(1);
+  preamblei.push_back(1);
+  preamblei.push_back(1);
+  preamblei.push_back(-1);
+  preamblei.push_back(-1);
+  preamblei.push_back(-1);
+  preamblei.push_back(-1);
+  preamblei.push_back(1);
+  preamblei.push_back(1);
+  preamblei.push_back(-1);
+  preamblei.push_back(-1);
+  preamblei.push_back(1);
 
   for( int i = 0; i < preamble.size(); i++) {
     buffer.push_back(0);
@@ -107,7 +124,7 @@ int rfidbits_preamble_det::general_work(int noutput_items,
               temp = 0;
               numbits++;   
               i++;
-          else {
+          } else {
               d_state = ST_MUTED;
               numbits = 0;
           }
