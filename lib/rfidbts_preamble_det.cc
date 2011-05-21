@@ -66,23 +66,23 @@ rfidbts_preamble_det::rfidbts_preamble_det() :
   preamble.push_back(-1);
   preamble.push_back(1);
 
-  preamblei.push_back(1);
-  preamblei.push_back(1);
-  preamblei.push_back(1);
-  preamblei.push_back(1);
-  preamblei.push_back(1);
-  preamblei.push_back(1);
-  preamblei.push_back(1);
+  preamblei.push_back(-1);
+  preamblei.push_back(-1);
+  preamblei.push_back(-1);
   preamblei.push_back(-1);
   preamblei.push_back(-1);
   preamblei.push_back(-1);
   preamblei.push_back(-1);
   preamblei.push_back(1);
   preamblei.push_back(1);
+  preamblei.push_back(1);
+  preamblei.push_back(1);
   preamblei.push_back(-1);
   preamblei.push_back(-1);
   preamblei.push_back(1);
-  preamblei.reverse();
+  preamblei.push_back(1);
+  preamblei.push_back(-1);
+
   MAXBITS = 16;
   for( int i = 0; i < preamble.size(); i++) {
     buffer.push_back(0);
