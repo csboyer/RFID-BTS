@@ -1,88 +1,61 @@
 from gnuradio import gr, eng_notation
 from gnuradio.eng_option import eng_option
 import rfidbts_swig as rfidbts
-import Gnuplot
 
-class packet:
-  def __init__(self, data, numbits):
-    self.numbits = numbits
-    self.data = data
-
-  def bin(self,s):
-    temp = ""
-    count = 1
-    for i in range(4):
-      if self.numbits > 0:
-        if count & s != 0:
-          temp = "1" + temp
-        else:
-          temp = "0" + temp
-        count = count * 2
-        self.numbits = self.numbits - 1
-    return temp
-
-  def to_bits(self):
-    #a pkt consists of a list of hex values. Want to conver it to a string of bits!
-    #get the frame/preamble flag from the front of the packet. 
-    #bitize everything else
-    bit_chunks = str(self.data.pop(0))
-    for byte in self.data:
-      byte_str = self.bin(byte)
-      for bit in byte_str:
-        bit_chunks = bit_chunks + str(int(bit))
-    return bit_chunks
-
-# given a string of bit inputs makes a crc of command
-def make2_crc_5(bit_stream):
-    bit_stream2 = bit_stream + "00000"
-    poly = "101001"
-    for i in range(len(bit_stream)):
-        if bit_stream2[0] == "1":
-            bit_stream2 = string_xor(bit_stream2[0:6], poly) + bit_stream2[6:]
-        bit_stream2 = bit_stream2[1:]
-    return bit_stream2
-
-# xor on two equal length strings of bit representations
-def string_xor(str1, str2):
-    out = ""
-    for i in range(len(str1)):
-        if str1[i] != str2[i]:
-            out = out[:(i)] + '1' + out[(i+1):]
-        else:
-            out = out[:(i)] + '0' + out[(i+1):]   
-    return out
-
+from bitarray import bitarray
+from crc_algorithms import Crc
 
 class downlink_src(gr.hier_block2):
-  def __init__(self,tari_rate,usrp_rate):
+  def __init__(
+          self,
+          samp_per_delimiter, #seconds for delimiter
+          samp_per_cw,        #seconds for bootup time
+          samp_per_wait,      #seconds to keep tag powered
+          samp_per_tari,      #seconds per tari
+          samp_per_pw,        #length of pw in tari
+          samp_per_trcal,     #length of data 1 symbol in taris
+          samp_per_data1):    #length of trcal in taris
+
     gr.hier_block2.__init__(self, "downlink_src",
-                            gr.io_signature(0, 0, 0), #input is command to send to tag
+                            gr.io_signature(0, 0, 0), #nothing
                             gr.io_signature(1, 1, gr.sizeof_gr_complex)) #output is complex baseband to sink
-    #declare pie encoder
-    self.pie_encoder = rfidbts.pie_encoder(10)
-    #construct rrc filter
-    #each half tari is a symbol
-    samples_per_symbol = usrp_rate / tari_rate / 2
 
-    gain = samples_per_symbol
-    symbol_rate = 1.0
-    alpha = 0.1
-    ntaps = 8 * samples_per_symbol
-    #self.rrc_taps = gr.firdes.root_raised_cosine(gain,samples_per_symbol,symbol_rate,alpha,ntaps)
-    self.rrc_taps = [1] * samples_per_symbol
+    self.pie_encoder = rfidbts.pie_encoder(
+            samp_per_delimiter,
+            samp_per_tari,
+            samp_per_pw,
+            samp_per_trcal,
+            samp_per_data1,
+            samp_per_cw,
+            samp_per_wait)
 
-    #construct interpolator
-    interp_factor = samples_per_symbol
-    self.rrc_interpolator = gr.interp_fir_filter_ccf(interp_factor, self.rrc_taps)
-    #self.rrc_interpolator = gr.interp_fir_filter_ccf(1, self.rrc_taps)
-    #self.stretch = gr.repeat(gr.sizeof_gr_complex, interp_factor)
-    #connect everything together
-    self.connect(self.pie_encoder, self.rrc_interpolator, self)
-    #self.connect(self.pie_encoder, self.stretch, self.rrc_interpolator, self)
+    self.connect(
+            self.pie_encoder, 
+            self)
 
+    self.crc = Crc(
+            width = 5, 
+            poly = 0x9,
+            reflect_in = True,
+            xor_in = 0xA,
+            reflect_out = True,
+            xor_out = 0x0)
 
-  def send_pkt(self, msg):
-    #add bit chunks to queue
-    self.pie_encoder.msgq().insert_tail(gr.message_from_string(msg ))
-    #self.pie_encoder.msgq().insert_tail(gr.message_from_string(msg + make2_crc_5(msg[1:])))
+  def send_pkt_preamble(self, msg):
+      #      msg.append(0)
+      #msg.append(0)
+      #msg.append(0)
+      #msg.append(0)
+      #msg.append(0)
+      crc = (0,0,0,0,0)
+      print 'Sending pkt with preamble: ', msg, 'CRC: ', crc
+      self.pie_encoder.snd_frame_preamble(msg + crc)
 
+  def send_pkt_framesync(self, msg):
+      msg.append(0)
+      msg.append(0)
+      msg.append(0)
+      msg.append(0)
+      msg.append(0)
+
+      self.pie_encoder.snd_frame_framesync(msg.to01())

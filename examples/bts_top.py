@@ -1,16 +1,6 @@
 #!/usr/bin/env python
 #add some GPL3/GNURadio license stuff here
-from scipy import *
-import array
-import Gnuplot
-import math
-import sys
-import os
-import time
-
-
-from gnuradio import gr, eng_notation
-from gnuradio import usrp
+from gnuradio import gr, eng_notation, usrp
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
 

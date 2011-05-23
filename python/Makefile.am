@@ -21,6 +21,7 @@
 
 include $(top_srcdir)/Makefile.common
 
+SUBDIRS = pycrc
 
 modpython_PYTHON = \
 	__init__.py\

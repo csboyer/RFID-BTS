@@ -75,6 +75,7 @@ AC_CONFIG_FILES([\
 	  config/Makefile \
 	  lib/Makefile \
 	  python/Makefile \
+      python/pycrc/Makefile \
 	  swig/Makefile \
 	])
 
