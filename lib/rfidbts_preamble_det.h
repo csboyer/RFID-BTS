@@ -20,10 +20,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#ifndef INCLUDED_RFIDBTS_PREAMBLE_DET_H
+#define	INCLUDED_RFIDBTS_PREAMBLE_DET_H
 
 #include <gr_block.h>
 #include <list>
-
 class rfidbts_preamble_det;
 typedef boost::shared_ptr<rfidbts_preamble_det> rfidbts_preamble_det_sptr;
 
@@ -57,4 +58,4 @@ public:
 		    gr_vector_void_star &output_items);
 };
 
-
+#endif

@@ -392,7 +392,6 @@ int rfidbts_pie_encoder::general_work(
             assert(false);
             break;
     };
-
     return nn;
 }
 

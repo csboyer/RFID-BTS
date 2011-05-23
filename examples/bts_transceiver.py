@@ -17,10 +17,18 @@ class transceiver(gr.hier_block2):
         #avg over 4 taps
         self.dc_block_filt = dc_block(4)
         self.agc = gr.agc_cc(
-               rate = 0.7e-3, 
+               rate = 0.65e-3, 
                reference = 1.0, 
                gain = 100.0,
-               max_gain = 200.0)
+               max_gain = 250.0)
+        mf = array((1.0 ,1.0)) / math.sqrt(2)
+        self.matched_filt = gr.fir_filter_ccf(1, mf)
+        self.gardner = rfidbts.gardner_timing_cc(
+                mu = 0.5,
+                gain_mu = 0.0001)
+        self.gardner_error_track = gr.file_sink(
+                itemsize = gr.sizeof_gr_complex,
+                filename = "mu_error.dat")
 # tari 25us = 16 samples
 # delimiter 12.5 us = 8 samples 
 # data1 = 2.0 tari = 50 us = 32 samples
@@ -39,22 +47,21 @@ class transceiver(gr.hier_block2):
                 samp_per_trcal = 53,
                 samp_per_data1 = 32)
 
-        mf = array((1.0 ,1.0)) / math.sqrt(2)
-        self.matched_filt = gr.fir_filter_ccf(1, mf)
 
         self.diag_output = gr.file_sink(
                 itemsize = gr.sizeof_gr_complex,
                 filename = "rcvr_out.dat")
-        self.dummy_source = gr.vector_source_c(
-                data = [complex(1.0,1.0)],
-                repeat = False)
 
         self.connect(
                 self, 
                 self.dc_block_filt, 
                 self.agc,
                 self.matched_filt,
+                (self.gardner,0),
                 self.diag_output)
+        self.connect(
+                (self.gardner,1),
+                self.gardner_error_track)
         self.connect(
                 self.tx_encoder,
                 self)
