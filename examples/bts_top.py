@@ -17,6 +17,31 @@ class downlink_test_file_sink(gr.hier_block2):
 
     self.connect(self,self.c_to_f, self.chop,self.f)
 
+class dc_block(gr.hier_block2):
+    def __init__(self,avg_len):
+        gr.hier_block2.__init__(
+                self, 
+                "dc_block",
+                gr.io_signature(1, 1, gr.sizeof_gr_complex),
+                gr.io_signature(1, 1, gr.sizeof_gr_complex))
+
+        self.mvg_avg = gr.moving_average_cc(
+                avg_len, 
+                complex(-1.0,0.0) / avg_len, 
+                4 * avg_len)
+        self.adder = gr.add_cc()
+
+        self.connect(
+                self, 
+                self.mvg_avg, 
+                (self.adder,0))
+        self.connect(
+                self, 
+                (self.adder,1))
+        self.connect(
+                self.adder,
+                self)
+
 # Recieve path that inputs from the usrp at the same frequency that the other side is 
 # transmitting
 class recieve_path(gr.hier_block2):
@@ -52,16 +77,30 @@ class recieve_path(gr.hier_block2):
     #self.c_to_f = gr.complex_to_real()
     self.skip = gr.skiphead (gr.sizeof_gr_complex, skip)
     self.chop = gr.head(gr.sizeof_gr_complex, total)
-    self.f = gr.file_sink(gr.sizeof_gr_complex,'outputrx1.dat')
+    self.f = gr.file_sink(gr.sizeof_float,'outputrx1.dat')
     self.f2 = gr.file_sink(gr.sizeof_float,'outputrx2.dat')
     self.complex_to_angle = gr.complex_to_arg()
-    num_taps = int(64000 / ( (usrp_decim * 4) * 40 )) #Filter matched to 1/4 of the 40 kHz tag cycle
-    taps = [complex(1,1)] * num_taps
-    matched_filt = gr.fir_filter_ccc(sw_dec, taps);  
-    agc = gr.agc2_cc(0.3, 1e-3, 1, 1, 100) 
 
-    self.connect(self.u, self.skip, self.chop, self.f)
-    self.connect(self.chop, self.complex_to_angle, self.f2)
+    dc_block_filt = dc_block(4)
+    agc = gr.agc_cc( rate = 1e-7, reference = 1.0, gain = 0.001, max_gain = 0.5)
+    omega = 32
+    mu = 0
+    gain_mu = 0.05
+    gain_omega = .0025
+    omega_relative_limit = .005
+
+    mm = gr.clock_recovery_mm_cc(omega, gain_omega, mu, gain_mu, omega_relative_limit)
+
+    matchtaps = [complex(-1,-1)] * 8 + [complex(1,1)] * 8 + [complex(-1,-1)]* 8 + [complex(1,1)]* 8
+    #matchtaps = [complex(1,1)] * 8 + [complex(-1,-1)] * 8 
+    #matchtaps = [complex(1,1)] * 8 
+    matchfilter = gr.fir_filter_ccc(1, matchtaps)
+    predet = rfidbts.preamble_det()
+    c_f = gr.complex_to_real()
+    
+    self.connect(self.u, dc_block_filt, agc, matchfilter, mm,  c_f, self.f)
+    #self.connect(self.u, self.skip, self.chop, self.f)
+    #self.connect(self.chop, self.complex_to_angle, self.f2)
 
   def set_freq(self,target_freq):
     r = self.u.tune(self.subdev.which(),self.subdev,target_freq)
@@ -189,7 +228,7 @@ def main():
   code = get_code("q")
   code2 = get_code("ak")
   tb.tx_path.downlink.send_pkt(code)
-  tb.tx_path.downlink.send_pkt(code2)
+  #tb.tx_path.downlink.send_pkt(code2)
   #for i in range(10):
   #    tb.tx_path.downlink.send_pkt(code)
   #    tb.tx_path.downlink.send_pkt(code2)
