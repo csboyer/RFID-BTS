@@ -139,12 +139,77 @@ class app_top_block(gr.top_block):
 
         return u_snk
 
+# Returns a vector of bytes given the command string in com and the number of bits to transmit
+# Returns zero if the string is not found
+def get_code(com):
+	if com[0] == "s":
+		if len(com) > 2:
+			return ("4" + com[2:len(com)])
+		else:
+			return 0
+	if com == "q":
+		tb.transceiver.snd_query()
+		return 1
+		#return stream
+	if com == "ak":
+		return ("5010000000000000111")
+	if com == "qr":
+		return ("50001")
+	if com == "q2":
+		return ([0x4, 0x8, 0x5, 0x0, 0x7, 0xF, 0x3], 22)
+	if com == "q1":
+		return ([0x4, 0x8, 0x6, 0x0, 0x0, 0x1, 0xD], 22)
+	elif com == "loop test":
+		a = [0x4, 1, 0]
+		return ([0x5, 0x8, 0x6, 0x0, 0x0, 0x8,0x0], 22)
+	else:
+		return 0
+
+# Controls the program flow.  Enter commands here.
+def control_loop(tb):
+  pwr_on = True
+  com = "nothing"
+  while com != "e":
+    com = raw_input("Command: ")
+    if com == "start":
+      if pwr_on == False:	
+        pwr_on = True
+        tb.start()
+	print("Sending power to device.")
+      else:
+        print "Power already on."
+    elif com == "stop":
+      if pwr_on == true:
+        tb.stop()
+        tb.wait()
+        pwr_on = False
+        print("Stopped sending power.")
+      else:
+        print "Power not on"
+    elif com == "loop":
+      x = 0
+      while x != 12:
+        if not tb.tx_path.downlink.pie_encoder.msgq().full_p():
+          code = get_code("q")
+          tb.tx_path.downlink.send_pkt(code)
+    elif com != "e":
+      code = get_code(com)
+		# If the command is ok then output the bytes associated with it to the modulating block
+		# This works if the power is off or on.
+      if code != 0:
+        tb.transceiver.snd_query()
+        print("Command sent")		
+      else:
+        print("Uknown command.")
+
 def main():
     tb = app_top_block()
 
     try:
         tb.start()
         tb.transceiver.snd_query()
+        control_loop(tb)
+        tb.stop()
         tb.wait()
     except KeyboardInterrupt:
         pass
