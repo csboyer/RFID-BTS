@@ -12,3 +12,4 @@
 %include "rfidbts_downlink.i"
 %include "rfidbts_preamble_det.i"
 %include "rfidbts_gardner_timing_cc.i"
+%include "rfidbts_receive_gate.i"

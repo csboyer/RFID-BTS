@@ -15,6 +15,11 @@ class transceiver(gr.hier_block2):
                 gr.io_signature(1, 1, gr.sizeof_gr_complex),
                 gr.io_signature(1, 1, gr.sizeof_gr_complex))
         #avg over 4 taps
+        self.pwr_gate = gr.pwr_squelch_cc(
+                db = -14,
+                alpha = 0.001,
+                ramp = 0,
+                gate = True)
         self.dc_block_filt = dc_block(4)
         self.agc = gr.agc_cc(
                rate = 0.65e-3, 
@@ -25,10 +30,18 @@ class transceiver(gr.hier_block2):
         self.matched_filt = gr.fir_filter_ccf(1, mf)
         self.gardner = rfidbts.gardner_timing_cc(
                 mu = 0.5,
-                gain_mu = 0.0001)
+                gain_mu = 0.05)
         self.gardner_error_track = gr.file_sink(
                 itemsize = gr.sizeof_gr_complex,
                 filename = "mu_error.dat")
+        pa = array((
+                    1,-1, 1, -1, 1,-1, 1, -1, 
+                    1,-1, 1, -1, -1, 1, -1, 1,
+                    -1, 1, -1, 1, -1, 1, -1, 1,
+                    -1, 1, -1, 1, 1,-1, 1, -1,
+                    1,-1, 1, -1, -1, 1, -1, 1,
+                    -1, 1, -1, 1, 1,-1, 1, -1)) * 1.0
+        self.preamble = gr.fir_filter_ccf(1,pa / sqrt(vdot(pa,pa)))
 # tari 25us = 16 samples
 # delimiter 12.5 us = 8 samples 
 # data1 = 2.0 tari = 50 us = 32 samples
@@ -57,11 +70,11 @@ class transceiver(gr.hier_block2):
                 self.dc_block_filt, 
                 self.agc,
                 self.matched_filt,
-                (self.gardner,0),
-                self.diag_output)
+                self.gardner)
         self.connect(
-                (self.gardner,1),
-                self.gardner_error_track)
+                (self.gardner,0),
+                self.preamble,
+                self.diag_output)
         self.connect(
                 self.tx_encoder,
                 self)

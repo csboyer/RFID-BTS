@@ -50,6 +50,7 @@ no_dist_files = $(swig_built_sources)
 rfidbts_swiginclude_headers = \
 	rfidbts_downlink.i \
 	rfidbts_preamble_det.i \
-	rfidbts_gardner_timing_cc.i
+	rfidbts_gardner_timing_cc.i \
+	rfidbts_receive_gate.i
 
 endif

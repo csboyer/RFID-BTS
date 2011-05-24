@@ -33,6 +33,12 @@
 #include <cstdio>
 #include <cfloat>
 
+//#define MU_ERROR
+
+
+#include <iostream>
+
+using namespace std;
 
 // Public constructor
 static const int FUDGE = 16;
@@ -112,9 +118,12 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
                                        &in[ii + 1],
                                        d_mu);
         //calculate error
-        g_val = real(d_p_1T) * (real(d_p_1T) - real(d_p_2T)) +
-                imag(d_p_1T) * (imag(d_p_1T) - imag(d_p_2T));
-        g_val = (g_val > 1.0 || g_val < 1.0) ? copysignf(1.0, g_val) : g_val;
+        g_val = real(d_p_1T) * (real(d_p_0T) - real(d_p_2T)) +
+                imag(d_p_1T) * (imag(d_p_0T) - imag(d_p_2T));
+#ifdef MU_ERROR
+        cout << "Mu offset: " << g_val << endl;
+#endif
+        g_val = (g_val > 1.0 || g_val < -1.0) ? copysignf(1.0, g_val) : g_val;
         //update loop filter
         d_mu = d_mu + d_gain_mu * g_val;
         d_mu = (d_mu < 0.0 || d_mu > 1.0) ? d_mu - copysignf(1.0, d_mu) : d_mu;

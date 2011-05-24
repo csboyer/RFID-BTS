@@ -47,7 +47,7 @@ class downlink_src(gr.hier_block2):
       #msg.append(0)
       #msg.append(0)
       #msg.append(0)
-      crc = (0,0,0,0,0)
+      crc = (0,0,1,1,1)
       print 'Sending pkt with preamble: ', msg, 'CRC: ', crc
       self.pie_encoder.snd_frame_preamble(msg + crc)
 
