@@ -69,7 +69,7 @@ class app_top_block(gr.top_block):
         parser.add_option("", "--rx-samp-rate", type="eng_float", default=1e6, help="RX sample rate for UHD, [default=%default]")
         parser.add_option("", "--tx-samp-rate", type="eng_float", default=640e3, help="TX sample rate for UHD, [default=%default]")
         parser.add_option("", "--frequency", type="eng_float", default=915e6, help="TX/RX frequency, [default=%default]")
-        parser.add_option("", "--rx-gain", type="eng_float", default=90, help="Gain for RX and TX, [default=%default]")
+        parser.add_option("", "--rx-gain", type="eng_float", default=45, help="Gain for RX and TX, [default=%default]")
         parser.add_option("", "--tx-gain", type="eng_float", default=0, help="Gain for RX and TX, [default=%default]")
         (options, args) = parser.parse_args()
 #checked for unparsed options

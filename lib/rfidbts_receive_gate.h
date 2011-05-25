@@ -25,27 +25,35 @@
 #define	INCLUDED_RFIDBTS_RECEIVE_GATE_H
 
 #include <gr_block.h>
-#include <list>
+
 class rfidbts_receive_gate;
 typedef boost::shared_ptr<rfidbts_receive_gate> rfidbts_receive_gate_sptr;
-rfidbts_receive_gate_sptr rfidbts_make_receive_gate (int preamble_samps,
+rfidbts_receive_gate_sptr rfidbts_make_receive_gate (int delimiter_samps,
+                                                     int rx_samps,
+                                                     int preamble_samps,                                         
                                                      int wait_samps);
 
 class rfidbts_receive_gate : public gr_block
 {
 private:
-
+  
+  int d_delimiter_samps;
+  int d_rx_samps;
   int d_preamble_samps;
   int d_wait_samps;
   long d_samp_cnt;
-  enum State { ST_TXOFF, ST_TXON_MUTE, ST_PREAMBLE_WAIT, ST_RXON, ST_POSTRX };
+  enum State { ST_TXOFF, ST_TXON_MUTE, ST_DELIMITER, ST_PREAMBLE_WAIT, ST_RXON, ST_POSTRX };
   State d_state;
   
-  friend rfidbts_receive_gate_sptr rfidbts_make_receive_gate(int preamble_samps,
+  friend rfidbts_receive_gate_sptr rfidbts_make_receive_gate(int delimiter_samps,
+                                                             int rx_samps,
+                                                             int preamble_samps,
                                                              int wait_samps);
 
 protected:
-  rfidbts_receive_gate (int preamble_samps,
+  rfidbts_receive_gate (int delimiter_samps,
+                        int rx_samps,
+                        int preamble_samps,                                         
                         int wait_samps);
 
 public:
