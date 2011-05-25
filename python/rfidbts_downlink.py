@@ -67,7 +67,7 @@ class downlink_src(gr.hier_block2):
       msgs = msgs[1:len(msgs)-1:3]
       crc = make3_crc_5(msgs)
       print 'Sending pkt with preamble: ', msg, 'CRC: ', tuple(crc)
-      self.pie_encoder.snd_frame_preamble(msg + tuple(crc))
+      self.pie_encoder.snd_frame_preamble(msg + tuple([int(i) for i in tuple(crc)]))
 
   def send_pkt_framesync(self, msg):
       msg.append(0)
