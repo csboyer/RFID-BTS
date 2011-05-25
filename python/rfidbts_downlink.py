@@ -5,6 +5,30 @@ import rfidbts_swig as rfidbts
 from bitarray import bitarray
 from crc_algorithms import Crc
 
+def string_xor(str1, str2):
+    out = ""
+    for i in range(len(str1)):
+        if str1[i] != str2[i]:
+            out = out[:(i)] + '1' + out[(i+1):]
+        else:
+            out = out[:(i)] + '0' + out[(i+1):]   
+    return out
+
+def make3_crc_5(bit_stream):
+    preset = "01001"
+    register = "01001"
+    flag = True
+    for i in range(len(bit_stream)):
+        if register[0] == bit_stream[0]:
+            flag = False
+        else:
+            flag = True
+        register = register[1:] + "0"
+        bit_stream = bit_stream[1:]
+        if flag:
+            register = string_xor(register, preset)
+    return register
+
 class downlink_src(gr.hier_block2):
   def __init__(
           self,
@@ -33,23 +57,17 @@ class downlink_src(gr.hier_block2):
             self.pie_encoder, 
             self)
 
-    self.crc = Crc(
-            width = 5, 
-            poly = 0x9,
-            reflect_in = True,
-            xor_in = 0xA,
-            reflect_out = True,
-            xor_out = 0x0)
-
   def send_pkt_preamble(self, msg):
       #      msg.append(0)
       #msg.append(0)
       #msg.append(0)
       #msg.append(0)
       #msg.append(0)
-      crc = (0,0,1,1,1)
-      print 'Sending pkt with preamble: ', msg, 'CRC: ', crc
-      self.pie_encoder.snd_frame_preamble(msg + crc)
+      msgs = str(msg)
+      msgs = msgs[1:len(msgs)-1:3]
+      crc = make3_crc_5(msgs)
+      print 'Sending pkt with preamble: ', msg, 'CRC: ', tuple(crc)
+      self.pie_encoder.snd_frame_preamble(msg + tuple(crc))
 
   def send_pkt_framesync(self, msg):
       msg.append(0)

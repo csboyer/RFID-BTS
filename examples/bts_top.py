@@ -98,7 +98,7 @@ class recieve_path(gr.hier_block2):
     predet = rfidbts.preamble_det()
     c_f = gr.complex_to_real()
     
-    self.connect(self.u, dc_block_filt, agc, matchfilter, mm,  c_f, self.f)
+    self.connect(self.u, dc_block_filt, agc, matchfilter, mm,  c_f, predet, self.f)
     #self.connect(self.u, self.skip, self.chop, self.f)
     #self.connect(self.chop, self.complex_to_angle, self.f2)
 
