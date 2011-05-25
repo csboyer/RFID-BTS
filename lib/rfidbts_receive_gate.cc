@@ -29,32 +29,41 @@
 #include <cmath>
 #include <gr_io_signature.h>
 #include <stdio.h>
+#include <iostream>
+
+using namespace std;
 
 // public constructor that takes existing message queue
 rfidbts_receive_gate_sptr
-rfidbts_make_receive_gate(int delimiter_samps,
-                          int rx_samps,
-                          int preamble_samps,
-                          int wait_samps)
+rfidbts_make_receive_gate (float threshold,
+                           int pw_preamble,
+                           int off_max,
+                           int mute_buffer,
+                           int tag_response)
 {
-  return rfidbts_receive_gate_sptr(new rfidbts_receive_gate(delimiter_samps,
-                                                            rx_samps,
-                                                            preamble_samps,
-                                                            wait_samps));
+  return rfidbts_receive_gate_sptr(new rfidbts_receive_gate(threshold,
+                                                            pw_preamble,
+                                                            off_max,
+                                                            mute_buffer,
+                                                            tag_response));
 }
 
-rfidbts_receive_gate::rfidbts_receive_gate(int delimiter_samps,
-                                           int rx_samps,
-                                           int preamble_samps,
-                                           int wait_samps)
+rfidbts_receive_gate::rfidbts_receive_gate(float threshold,
+                                           int pw_preamble,
+                                           int off_max,
+                                           int mute_buffer,
+                                           int tag_response)
 	: gr_block("receiver_gate",
 	         gr_make_io_signature(1, 1, sizeof(gr_complex)),
 	         gr_make_io_signature(1, 1, sizeof(gr_complex))),
-    d_delimiter_samps(delimiter_samps),
-    d_rx_samps(rx_samps),
-    d_preamble_samps(preamble_samps),
-    d_wait_samps(wait_samps),
-    d_state(ST_TXOFF)
+    d_threshold(threshold),
+    d_pw_preamble(pw_preamble),
+    d_off_max(off_max),
+    d_mute_buffer(mute_buffer),
+    d_tag_response(tag_response),
+    d_bootup_count(0),
+    d_bootup_time(300),
+    d_state(ST_BOOTUP)
 {
 }
 
@@ -72,69 +81,63 @@ int rfidbts_receive_gate::general_work(
     gr_complex *out = (gr_complex *) output_items[0];
 
     for(ii = 0; ii < nii; ii++) {
-    switch(d_state) {
-        case ST_TXOFF: //idle state
-            if( abs(in[ii]) > 0.01 ) {
-                d_state = ST_TXON_MUTE;
-            }
-            break;
-        case ST_TXON_MUTE: //reader is charging the tag
-            if( abs(in[ii]) < 0.015 ) {
-                d_state = ST_DELIMITER;
-                d_samp_cnt = 0;
-            }
-            break;
-        case ST_DELIMITER: //detected potential delimiter
-            if(d_samp_cnt < d_delimiter_samps) {
-                d_samp_cnt++;
-            }
-            else if(abs(in[ii]) > 0.015) {
-                d_state = ST_PREAMBLE_WAIT;
-                d_samp_cnt = 0;
-            }
-            else {
-                d_state = ST_TXOFF;
-            }
-            break;
-        case ST_PREAMBLE_WAIT: //found the delimter, wait the entire length of preamble
-            if(d_samp_cnt < d_preamble_samps) {
-                d_samp_cnt++;
-            }
-            else {
-                d_state = ST_RXON;
-                d_samp_cnt = 0;
-            }
-            break;
-        case ST_RXON: //potentially receiving tag backscatter
-            if(d_samp_cnt < d_rx_samps) {
-                d_samp_cnt++;
-                out[oo] = in[ii];
-                oo++;
-            }
-            else {
-                d_state = ST_POSTRX;
-                d_samp_cnt = 0;
-            }
-            break;
-        case ST_POSTRX: //may be more backscatter or another downlink frame
-            if(abs(in[ii]) < 0.015) {
-                d_state = ST_DELIMITER;
-                d_samp_cnt = 0;
-            }
-            else if(d_samp_cnt < d_wait_samps) {
-                d_samp_cnt++;
-                out[oo] = in[ii];
-                oo++;
-            }
-            else {
-                d_state = ST_TXON_MUTE;
-            }
-            break;
-        default:
-            assert(0);
-            return -1;
-    };
+        switch(d_state) {
+            case ST_BOOTUP:
+                if(d_bootup_count > d_bootup_time) {
+                    d_state = ST_TXOFF;
+                }
+                else {
+                    d_bootup_count++;
+                }
+                break;
+            case ST_TXOFF:
+                if( abs(in[ii]) > (d_threshold ) ) {
+                    d_state = ST_TXON_MUTE;
+                    d_pw_count = 0;
+                }
+                break;
+            case ST_TXON_MUTE:
+                if( abs(in[ii]) < (d_threshold ) ) {
+                    d_off_count = 0;
+                    d_pw_count++;
+                    d_state = ST_TXOFF_MUTE;
+                }
+                break;
+            case ST_TXOFF_MUTE:
+                if(d_off_count > d_off_max) {
+                    d_state = ST_TXOFF;
+                }
+                else if( abs(in[ii]) > d_threshold  && d_pw_count >= d_pw_preamble) {
+                    d_unmute_count = 0;
+                    d_state = ST_UNMUTE;
+                }
+                else if( abs(in[ii]) > d_threshold  ) {
+                    d_state = ST_TXON_MUTE;
+                }
+                else {
+                    d_off_count++;
+                }
+                break;
+            case ST_UNMUTE:
+                if(d_unmute_count < d_mute_buffer) {
+                    d_unmute_count++;
+                }
+                else if(d_unmute_count > d_tag_response) {
+                    d_state = ST_TXON_MUTE;
+                    d_pw_count = 0;
+                }
+                else {
+                    out[oo] = in[ii];
+                    oo++;
+                    d_unmute_count++;
+                }
+                break;
+            default:
+                assert(0);
+                break;
+        };
     }
+
 
     consume_each(ii);
     return oo;

@@ -30,11 +30,11 @@
 
 
 GR_SWIG_BLOCK_MAGIC(rfidbts,receive_gate);
-rfidbts_receive_gate_sptr rfidbts_make_receive_gate (int delimiter_samps, int rx_samps, int preamble_samps, int wait_samps);
+rfidbts_receive_gate_sptr rfidbts_make_receive_gate (float threshold, int pw_preamble, int off_max, int mute_buffer, int tag_response);
 
 class rfidbts_receive_gate : public gr_block
 {
  protected:
-  rfidbits_receive_gate(int delimiter_samps, int rx_samps, int preamble_samps, int wait_samps);
+  rfidbits_receive_gate(float threshold, int pw_preamble, int off_max, int mute_buffer, int tag_response);
 };
 

@@ -15,10 +15,11 @@ class transceiver(gr.hier_block2):
                 gr.io_signature(1, 1, gr.sizeof_gr_complex),
                 gr.io_signature(1, 1, gr.sizeof_gr_complex))
         self.TX_block = rfidbts.receive_gate(
-                delimiter_samps = 16, #wait 16us
-                rx_samps = 500,       #rx for 500us
-                preamble_samps = 190 + 450,      #wait for 190 us (preamble is 195.8 us long
-                wait_samps = 100,     #wait for another 100us
+                threshold = 0.04,     #bit above the noise floor
+                pw_preamble = 26,     #26 PW in downlink frame
+                off_max = 15,         #should not be in the off state for more than 13 us
+                mute_buffer = 15,     #wait for another wait 30us
+                tag_response = 1000   #1ms
                 )
         #avg over 16 taps
         self.dc_block_filt = dc_block(6)
@@ -27,14 +28,6 @@ class transceiver(gr.hier_block2):
                reference = 1.0, 
                gain = 10.0,
                max_gain = 100.0)
-        mf = array((1.0 , 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0))
-        self.matched_filt = gr.fir_filter_ccf(1, mf)
-        self.gardner = rfidbts.gardner_timing_cc(
-                mu = 0.25,
-                gain_mu = 0.01)
-        self.gardner_error_track = gr.file_sink(
-                itemsize = gr.sizeof_gr_complex,
-                filename = "mu_error.dat")
 # tari 25us = 16 samples
 # delimiter 12.5 us = 8 samples 
 # data1 = 2.0 tari = 50 us = 32 samples
@@ -61,9 +54,6 @@ class transceiver(gr.hier_block2):
                 itemsize = gr.sizeof_gr_complex,
                 filename = "tx_block.dat")
 
-#        self.connect(
-#                (self.gardner,1),
-#                self.tx_block_debug)
         self.connect(
                 self,
                 self.TX_block,

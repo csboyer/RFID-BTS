@@ -28,33 +28,41 @@
 
 class rfidbts_receive_gate;
 typedef boost::shared_ptr<rfidbts_receive_gate> rfidbts_receive_gate_sptr;
-rfidbts_receive_gate_sptr rfidbts_make_receive_gate (int delimiter_samps,
-                                                     int rx_samps,
-                                                     int preamble_samps,                                         
-                                                     int wait_samps);
+rfidbts_receive_gate_sptr rfidbts_make_receive_gate (float threshold,
+                                                     int pw_preamble,
+                                                     int off_max,
+                                                     int mute_buffer,
+                                                     int tag_reponse);
 
 class rfidbts_receive_gate : public gr_block
 {
 private:
-  
-  int d_delimiter_samps;
-  int d_rx_samps;
-  int d_preamble_samps;
-  int d_wait_samps;
-  long d_samp_cnt;
-  enum State { ST_TXOFF, ST_TXON_MUTE, ST_DELIMITER, ST_PREAMBLE_WAIT, ST_RXON, ST_POSTRX };
+  float d_threshold;
+  int d_pw_preamble;
+  int d_off_max;
+  int d_mute_buffer;
+  int d_tag_response;
+
+  int d_bootup_count;
+  int d_bootup_time;
+  int d_off_count;
+  int d_pw_count;
+  int d_unmute_count;
+  enum State { ST_BOOTUP, ST_TXOFF, ST_TXON_MUTE, ST_TXOFF_MUTE, ST_UNMUTE };
   State d_state;
   
-  friend rfidbts_receive_gate_sptr rfidbts_make_receive_gate(int delimiter_samps,
-                                                             int rx_samps,
-                                                             int preamble_samps,
-                                                             int wait_samps);
+  friend rfidbts_receive_gate_sptr rfidbts_make_receive_gate(float threshold,
+                                                             int pw_preamble,
+                                                             int off_max,
+                                                             int mute_buffer,
+                                                             int tag_reponse);
 
 protected:
-  rfidbts_receive_gate (int delimiter_samps,
-                        int rx_samps,
-                        int preamble_samps,                                         
-                        int wait_samps);
+  rfidbts_receive_gate (float threshold,
+                        int pw_preamble,
+                        int off_max,
+                        int mute_buffer,
+                        int tag_reponse);
 
 public:
 
