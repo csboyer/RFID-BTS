@@ -110,12 +110,14 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
   if(write_foptr) {
     while(oo < noutput_items && ii < ni) {
         //interpolate based on new mu
-        d_p_2T = d_p_0T;
+        d_p_2T = d_interp->interpolate(
+                                       &in[ii + 0],
+                                       d_mu);
         d_p_1T = d_interp->interpolate(
-                                       &in[ii],
+                                       &in[ii + 1],
                                        d_mu);
         d_p_0T = d_interp->interpolate(
-                                       &in[ii + 1],
+                                       &in[ii + 2],
                                        d_mu);
         //calculate error
         g_val = real(d_p_1T) * (real(d_p_0T) - real(d_p_2T)) +
@@ -126,35 +128,62 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
         g_val = (g_val > 1.0 || g_val < -1.0) ? copysignf(1.0, g_val) : g_val;
         //update loop filter
         d_mu = d_mu + d_gain_mu * g_val;
-        d_mu = (d_mu < 0.0 || d_mu > 1.0) ? d_mu - copysignf(1.0, d_mu) : d_mu;
+        if(d_mu < 0.0) {
+            d_mu = -1 * d_mu;
+            d_mu = ceil(d_mu) - d_mu;
+            ii += 1;
+        }
+        else if(d_mu > 1.0) {
+            d_mu = -1 * (floor(d_mu) - d_mu);
+            ii += 3;
+        }
+        else {
+            ii += 2;
+        }
         // write the error signal to the second output
-        out[oo] = d_p_0T;
         foptr[oo] = gr_complex(d_mu,0);
+        out[oo] = d_p_0T;
+       
         oo++;
-        ii += 2;
     }
   }
   else {
     while(oo < noutput_items && ii < ni) {
         //interpolate based on new mu
-        d_p_2T = d_p_0T;
-        d_p_1T = d_interp->interpolate(
-                                       &in[ii],
+        d_p_2T = d_interp->interpolate(
+                                       &in[ii + 0],
                                        d_mu);
-        d_p_0T = d_interp->interpolate(
+        d_p_1T = d_interp->interpolate(
                                        &in[ii + 1],
                                        d_mu);
+        d_p_0T = d_interp->interpolate(
+                                       &in[ii + 2],
+                                       d_mu);
         //calculate error
-        g_val = real(d_p_1T) * (real(d_p_1T) - real(d_p_2T)) +
-                imag(d_p_1T) * (imag(d_p_1T) - imag(d_p_2T));
-        g_val = (g_val > 1.0 || g_val < 1.0) ? copysignf(1.0, g_val) : g_val;
+        g_val = real(d_p_1T) * (real(d_p_0T) - real(d_p_2T)) +
+                imag(d_p_1T) * (imag(d_p_0T) - imag(d_p_2T));
+#ifdef MU_ERROR
+        cout << "Mu offset: " << g_val << endl;
+#endif
+        g_val = (g_val > 1.0 || g_val < -1.0) ? copysignf(1.0, g_val) : g_val;
         //update loop filter
         d_mu = d_mu + d_gain_mu * g_val;
-        d_mu = (d_mu < 0.0 || d_mu > 1.0) ? d_mu - copysignf(1.0, d_mu) : d_mu;
+        if(d_mu < 0.0) {
+            d_mu = -1 * d_mu;
+            d_mu = ceil(d_mu) - d_mu;
+            ii += 1;
+        }
+        else if(d_mu > 1.0) {
+            d_mu = -1 * (floor(d_mu) - d_mu);
+            ii += 3;
+        }
+        else {
+            ii += 2;
+        }
         // write the error signal to the second output
         out[oo] = d_p_0T;
+       
         oo++;
-        ii += 2;
     }
   }
 

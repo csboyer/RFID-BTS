@@ -13,8 +13,8 @@ class app_top_block(gr.top_block):
     def __init__(self):
         gr.top_block.__init__(self)
 
-        xmtr_hack = False
-        rcvr_hack = False
+        xmtr_hack = True
+        rcvr_hack = True
         
         self.options = self.run_parser()
         self.transceiver = bts_transceiver.transceiver()
@@ -64,12 +64,12 @@ class app_top_block(gr.top_block):
     def run_parser(self):
         parser = OptionParser(option_class=eng_option)
         parser.add_option("", "--address", type="string", default="", help="Address of UHD device, [default=%default]")
-        parser.add_option("", "--test-src", type="string", default="good_rn16_2.dat", help="Input file, [default=%default]")
+        parser.add_option("", "--test-src", type="string", default="bb_dump.dat", help="Input file, [default=%default]")
         parser.add_option("", "--test-snk", type="string", default="readout.dat", help="Output file, [default=%default]")
         parser.add_option("", "--rx-samp-rate", type="eng_float", default=1e6, help="RX sample rate for UHD, [default=%default]")
         parser.add_option("", "--tx-samp-rate", type="eng_float", default=640e3, help="TX sample rate for UHD, [default=%default]")
         parser.add_option("", "--frequency", type="eng_float", default=915e6, help="TX/RX frequency, [default=%default]")
-        parser.add_option("", "--rx-gain", type="eng_float", default=90, help="Gain for RX and TX, [default=%default]")
+        parser.add_option("", "--rx-gain", type="eng_float", default=45, help="Gain for RX and TX, [default=%default]")
         parser.add_option("", "--tx-gain", type="eng_float", default=0, help="Gain for RX and TX, [default=%default]")
         (options, args) = parser.parse_args()
 #checked for unparsed options
