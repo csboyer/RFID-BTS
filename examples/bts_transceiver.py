@@ -21,13 +21,20 @@ class transceiver(gr.hier_block2):
                 mute_buffer = 15,     #wait for another wait 30us
                 tag_response = 1000   #1ms
                 )
-        #avg over 16 taps
-        self.dc_block_filt = dc_block(6)
+        #avg over 32 taps
+        self.dc_block_filt = dc_block(4)
         self.agc = gr.agc_cc(
-               rate = 5e-1, 
+               rate = 5e0, 
                reference = 1.0, 
-               gain = 10.0,
-               max_gain = 100.0)
+               gain = 300.0,
+               max_gain = 500.0)
+        mf = (1.0,1.0,-1.0,-1.0,1.0,1.0,-1.0,-1.0)
+        self.match_filt = gr.fir_filter_ccf(1,mf)
+        self.msg_queue = gr.msg_queue(100)
+        self.preamble = rfidbts.preamble_det(shared_q = self.msg_queue,
+                                             samples_per_frame = 985,
+                                             detection_threshold = 0.0)
+
 # tari 25us = 16 samples
 # delimiter 12.5 us = 8 samples 
 # data1 = 2.0 tari = 50 us = 32 samples
@@ -45,8 +52,9 @@ class transceiver(gr.hier_block2):
                 samp_per_pw = 8,
                 samp_per_trcal = 53,
                 samp_per_data1 = 32)
-
-
+        
+        self.msg_s = gr.message_source(gr.sizeof_gr_complex,
+                                       self.msg_queue)
         self.diag_output = gr.file_sink(
                 itemsize = gr.sizeof_gr_complex,
                 filename = "rcvr_out.dat")
@@ -55,9 +63,15 @@ class transceiver(gr.hier_block2):
                 filename = "tx_block.dat")
 
         self.connect(
+                self.msg_s,
+                self.diag_output)
+
+        self.connect(
                 self,
                 self.TX_block,
-                self.diag_output)
+                self.match_filt,
+                self.agc,
+                self.preamble)
         self.connect(
                 self.tx_encoder,
                 self)
@@ -77,7 +91,7 @@ class dc_block(gr.hier_block2):
         self.mvg_avg = gr.moving_average_cc(
                 avg_len, 
                 complex(-1.0,0.0) / avg_len, 
-                4 * avg_len)
+                1000)
         self.adder = gr.add_cc()
 
         self.connect(
