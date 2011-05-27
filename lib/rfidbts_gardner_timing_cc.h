@@ -35,7 +35,7 @@ typedef boost::shared_ptr<rfidbts_gardner_timing_cc> rfidbts_gardner_timing_cc_s
 
 // public constructor
 rfidbts_gardner_timing_cc_sptr 
-rfidbts_make_gardner_timing_cc (float mu, float gain_mu);
+rfidbts_make_gardner_timing_cc (float mu, float gain_mu, float omega, float gain_omega, float omega_relative_limit);
 
 class rfidbts_gardner_timing_cc : public gr_block
 {
@@ -52,14 +52,32 @@ class rfidbts_gardner_timing_cc : public gr_block
 
   void set_gain_mu (float gain_mu) { d_gain_mu = gain_mu; }
   void set_mu (float mu) { d_mu = mu; }
+  
+  void set_omega (float omega) {
+      d_omega = omega;
+      d_min_omega = omega*(1.0 - d_omega_relative_limit);
+      d_max_omega = omega*(1.0 + d_omega_relative_limit);
+      d_omega_mid = 0.5*(d_min_omega+d_max_omega);
+  }
 
 protected:
-  rfidbts_gardner_timing_cc (float mu, float gain_mu);
+  rfidbts_gardner_timing_cc (float mu, 
+                             float gain_mu, 
+                             float omega, 
+                             float gain_omega, 
+                             float omega_relative_limit);
 
  private:
   float g_val;
   float d_mu;
   float d_gain_mu;
+  float d_omega;
+  float d_gain_omega; 
+  float d_omega_relative_limit;
+  float d_min_omega;
+  float d_max_omega;
+  float d_omega_mid;
+
   gri_mmse_fir_interpolator_cc 	*d_interp;
   bool			        d_verbose;
 
@@ -68,7 +86,11 @@ protected:
   gr_complex                    d_p_0T;
 
   friend rfidbts_gardner_timing_cc_sptr
-  rfidbts_make_gardner_timing_cc (float mu, float gain_mu);
+  rfidbts_make_gardner_timing_cc (float mu, 
+                                  float gain_mu, 
+                                  float omega, 
+                                  float gain_omega, 
+                                  float omega_relative_limit);
 };
 
 #endif

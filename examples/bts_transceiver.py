@@ -34,7 +34,11 @@ class transceiver(gr.hier_block2):
         self.preamble = rfidbts.preamble_det(shared_q = self.msg_queue,
                                              samples_per_frame = 985,
                                              detection_threshold = 0.0)
-
+        self.timing_sync = rfidbts.gardner_timing_cc(mu = 0.0,
+                                       gain_mu = 0.01
+                                       omega = 8.0,
+                                       gain_omega = 0.1,
+                                       omega_relative_limit = 1.0)
 # tari 25us = 16 samples
 # delimiter 12.5 us = 8 samples 
 # data1 = 2.0 tari = 50 us = 32 samples
@@ -61,10 +65,17 @@ class transceiver(gr.hier_block2):
         self.tx_block_debug = gr.file_sink(
                 itemsize = gr.sizeof_gr_complex,
                 filename = "tx_block.dat")
+        self.timing_debug = gr.file_sink(
+                itemsize = gr.sizeof_float,
+                filename = "timing_block.dat")
 
         self.connect(
                 self.msg_s,
+                (self.timing_sync,0),
                 self.diag_output)
+        self.connect(
+                (self.timing_sync,1),
+                self.timing_debug)
 
         self.connect(
                 self,
