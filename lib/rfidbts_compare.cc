@@ -52,8 +52,6 @@ rfidbts_compare::work (int noutput_items,
   float *iptr0 = (float *) input_items[0];
   float *iptr1 = (float *) input_items[1];
   float *optr = (float *) output_items[0];
-  
-  assert(noutput_items >= 2);
 
   for (int i = 0; i < noutput_items; i++) {
     if (iptr0[i] * iptr0[i] >= iptr1[i] * iptr1[i]) {
