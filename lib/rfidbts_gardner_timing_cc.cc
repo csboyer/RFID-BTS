@@ -44,29 +44,39 @@ using namespace std;
 static const int FUDGE = 16;
 
 rfidbts_gardner_timing_cc_sptr 
-rfidbts_make_gardner_timing_cc(float mu, float gain_mu)
+rfidbts_make_gardner_timing_cc(float mu, float gain_mu, float omega, float gain_omega, float omega_relative_limit)
 {
   return gnuradio::get_initial_sptr(new rfidbts_gardner_timing_cc (
 								    mu,
-								    gain_mu));
+								    gain_mu,
+                                    omega,
+                                    gain_omega,
+                                    omega_relative_limit));
 }
 
 rfidbts_gardner_timing_cc::rfidbts_gardner_timing_cc (
         float mu, 
-        float gain_mu)
+        float gain_mu,
+        float omega,
+        float gain_omega,
+        float omega_relative_limit)
   : gr_block ("gardner_timing_cc",
-	      gr_make_io_signature (1, 1, sizeof (gr_complex)),
-	      gr_make_io_signature (1, 2, sizeof (gr_complex))),
+	      gr_make_io_signature2 (1, 2, sizeof (gr_complex), sizeof (char)),
+	      gr_make_io_signature3 (1, 3, sizeof (gr_complex), sizeof (float), sizeof (char))),
     d_mu (mu), 
     d_gain_mu(gain_mu), 
+    d_omega(omega),
+    d_gain_omega(gain_omega),
+    d_omega_relative_limit(omega_relative_limit),
     d_interp(new gri_mmse_fir_interpolator_cc()),
-    d_verbose(gr_prefs::singleton()->get_bool("clock_recovery_mm_cc", "verbose", false)),
+    d_verbose(gr_prefs::singleton()->get_bool("gardner_timing_cc", "verbose", false)),
     d_p_2T(0), d_p_1T(0), d_p_0T(0)
 {
   if (gain_mu <  0)
     throw std::out_of_range ("Gain must be non-negative");
 
-  set_relative_rate (0.5);
+  set_omega(omega);
+  set_relative_rate(1 / omega);
   set_history(3);			// ensure 2 extra input sample is available
 }
 
@@ -99,9 +109,12 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
   int  ii = 0;	 			// input index
   int  oo = 0;				// output index
   int  ni = ninput_items[0] - d_interp->ntaps() - FUDGE;  // don't use more input than this
+  int half_point;
+  int frac_half_point;
 
   assert(d_mu >= 0.0);
   assert(d_mu <= 1.0);
+  assert(d_omega >= 1.0);
 
   float mm_val=0;
   gr_complex u, x, y;
@@ -109,39 +122,36 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
   // This loop writes the error to the second output, if it exists
   if(write_foptr) {
     while(oo < noutput_items && ii < ni) {
-        //interpolate based on new mu
-        d_p_2T = d_interp->interpolate(
-                                       &in[ii + 0],
-                                       d_mu);
-        d_p_1T = d_interp->interpolate(
-                                       &in[ii + 1],
-                                       d_mu);
-        d_p_0T = d_interp->interpolate(
-                                       &in[ii + 2],
+        //save old sample and interpolate based on new mu
+        d_p_2T = d_p_0T;
+        d_p_0T = d_interp->interpolate(&in[ii], 
                                        d_mu);
         //calculate error
         g_val = real(d_p_1T) * (real(d_p_0T) - real(d_p_2T)) +
                 imag(d_p_1T) * (imag(d_p_0T) - imag(d_p_2T));
-#ifdef MU_ERROR
-        cout << "Mu offset: " << g_val << endl;
-#endif
-        g_val = (g_val > 1.0 || g_val < -1.0) ? copysignf(1.0, g_val) : g_val;
-        //update loop filter
-        d_mu = d_mu + d_gain_mu * g_val;
-        if(d_mu < 0.0) {
-            d_mu = -1 * d_mu;
-            d_mu = ceil(d_mu) - d_mu;
-            ii += 1;
-        }
-        else if(d_mu > 1.0) {
-            d_mu = -1 * (floor(d_mu) - d_mu);
-            ii += 3;
-        }
-        else {
-            ii += 2;
-        }
+        //cap the error by 1.0
+        g_val = gr_branchless_clip(g_val,1.0);
+        //update the error integrator
+        d_omega = d_omega + d_gain_omega * g_val;
+        //cap the integrator
+        d_omega = d_omega_mid + gr_branchless_clip(d_omega-d_omega_mid, d_omega_relative_limit);
+        //exact number of samples to advance into the future
+        d_mu += d_omega + d_gain_mu * g_val;
+        
+        //Now calculate the mid symbol point 
+        half_point = (int) floor(d_mu / 2);
+        frac_half_point = d_mu/2 - floor(d_mu / 2);
+        //interpolate the half point
+        d_p_1T = d_interp->interpolate(&in[ii + half_point], 
+                                       frac_half_point);
+
+        //whole samples to advance by
+        ii += (int) floor(d_mu);
+        //fractional samples to advance
+        d_mu =- floor(d_mu);
+
         // write the error signal to the second output
-        foptr[oo] = gr_complex(d_mu,0);
+        foptr[oo] = gr_complex(g_val,0);
         out[oo] = d_p_0T;
        
         oo++;
@@ -149,38 +159,34 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
   }
   else {
     while(oo < noutput_items && ii < ni) {
-        //interpolate based on new mu
-        d_p_2T = d_interp->interpolate(
-                                       &in[ii + 0],
-                                       d_mu);
-        d_p_1T = d_interp->interpolate(
-                                       &in[ii + 1],
-                                       d_mu);
-        d_p_0T = d_interp->interpolate(
-                                       &in[ii + 2],
+        //save old sample and interpolate based on new mu
+        d_p_2T = d_p_0T;
+        d_p_0T = d_interp->interpolate(&in[ii], 
                                        d_mu);
         //calculate error
         g_val = real(d_p_1T) * (real(d_p_0T) - real(d_p_2T)) +
                 imag(d_p_1T) * (imag(d_p_0T) - imag(d_p_2T));
-#ifdef MU_ERROR
-        cout << "Mu offset: " << g_val << endl;
-#endif
-        g_val = (g_val > 1.0 || g_val < -1.0) ? copysignf(1.0, g_val) : g_val;
-        //update loop filter
-        d_mu = d_mu + d_gain_mu * g_val;
-        if(d_mu < 0.0) {
-            d_mu = -1 * d_mu;
-            d_mu = ceil(d_mu) - d_mu;
-            ii += 1;
-        }
-        else if(d_mu > 1.0) {
-            d_mu = -1 * (floor(d_mu) - d_mu);
-            ii += 3;
-        }
-        else {
-            ii += 2;
-        }
-        // write the error signal to the second output
+        //cap the error by 1.0
+        g_val = gr_branchless_clip(g_val,1.0);
+        //update the error integrator
+        d_omega = d_omega + d_gain_omega * g_val;
+        //cap the integrator
+        d_omega = d_omega_mid + gr_branchless_clip(d_omega-d_omega_mid, d_omega_relative_limit);
+        //exact number of samples to advance into the future
+        d_mu += d_omega + d_gain_mu * g_val;
+        
+        //Now calculate the mid symbol point 
+        half_point = (int) floor(d_mu / 2);
+        frac_half_point = d_mu/2 - floor(d_mu / 2);
+        //interpolate the half point
+        d_p_1T = d_interp->interpolate(&in[ii + half_point], 
+                                       frac_half_point);
+
+        //whole samples to advance by
+        ii += (int) floor(d_mu);
+        //fractional samples to advance
+        d_mu =- floor(d_mu);
+
         out[oo] = d_p_0T;
        
         oo++;
