@@ -3,7 +3,7 @@
 from gnuradio import gr, eng_notation, usrp
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
-
+import howto
 import rfidbts
 
 class downlink_test_file_sink(gr.hier_block2):
@@ -42,6 +42,24 @@ class dc_block(gr.hier_block2):
                 self.adder,
                 self)
 
+class symbols_decoder(gr.hier_block2):
+    def __init__(self):
+        gr.hier_block2.__init__(
+                self, 
+                "dc_block",
+                gr.io_signature(1, 1, gr.sizeof_float),
+                gr.io_signature(1, 1, gr.sizeof_float))
+        match0 = [1, 1]
+        match1 = [1, -1]
+        self.match_filt0 = gr.fir_filter_fff(1, match0)
+        self.match_filt1 = gr.fir_filter_fff(1, match1)
+        self.destroy0 = gr.keep_one_in_n(gr.sizeof_float, 2)
+        self.destroy1 = gr.keep_one_in_n(gr.sizeof_float, 2)
+        self.compare = rfidbts.compare()
+        #(self.compare, 0),
+        self.connect(self, self.match_filt0, self.destroy0, (self.compare, 0), self)
+        self.connect(self, self.match_filt1, self.destroy1, (self.compare, 1))
+
 # Recieve path that inputs from the usrp at the same frequency that the other side is 
 # transmitting
 class recieve_path(gr.hier_block2):
@@ -70,37 +88,33 @@ class recieve_path(gr.hier_block2):
       print "Failed to set initial frequency"
 
     #set up the rest of the path
-    #skip = 600000
-    skip = 420000
-    total = 3000000
-    sw_dec = 5
-    #self.c_to_f = gr.complex_to_real()
-    self.skip = gr.skiphead (gr.sizeof_gr_complex, skip)
-    self.chop = gr.head(gr.sizeof_gr_complex, total)
-    self.f = gr.file_sink(gr.sizeof_float,'outputrx1.dat')
-    self.f2 = gr.file_sink(gr.sizeof_float,'outputrx2.dat')
-    self.complex_to_angle = gr.complex_to_arg()
 
     dc_block_filt = dc_block(4)
     agc = gr.agc_cc( rate = 1e-7, reference = 1.0, gain = 0.001, max_gain = 0.5)
-    omega = 32
-    mu = 0
-    gain_mu = 0.05
-    gain_omega = .0025
-    omega_relative_limit = .005
-
-    mm = gr.clock_recovery_mm_cc(omega, gain_omega, mu, gain_mu, omega_relative_limit)
 
     matchtaps = [complex(-1,-1)] * 8 + [complex(1,1)] * 8 + [complex(-1,-1)]* 8 + [complex(1,1)]* 8
-    #matchtaps = [complex(1,1)] * 8 + [complex(-1,-1)] * 8 
-    #matchtaps = [complex(1,1)] * 8 
+    #matchtaps = [complex(-1,-1)] * 8 + [complex(1,1)] * 8 
     matchfilter = gr.fir_filter_ccc(1, matchtaps)
-    predet = rfidbts.preamble_det()
+
+    reverse = [complex(1,1)] * (8 / deci) + [complex(-1,-1)] * (8 / deci) + [complex(1,1)]* (8 / deci) + [complex(-1,-1)]* (8 / deci)
+    #pretaps = matchtaps * 3 + reverse * 4 + matchtaps * 4 + reverse * 8 + matchtaps * 6 + matchtaps * 62
+    pretaps = matchtaps * 2 + reverse * 2 + matchtaps * 2 + reverse * 4 + matchtaps * 3 + matchtaps * 31
+    #pretaps =  matchtaps * 3 + reverse * 8 + matchtaps * 6 + matchtaps * 64
+    preamble_filter = gr.fir_filter_ccc(1, pretaps)
+
     c_f = gr.complex_to_real()
+    c_f2 = gr.complex_to_real()
+
+    lock = howto.lock_time(32, 5, 32)
+
+    pd = howto.find_pre_ff(55, 200)
+
+    dec = symbols_decoder()
+
+    self.vect = gr.vector_sink_f()
     
-    self.connect(self.u, dc_block_filt, agc, matchfilter, mm,  c_f, predet, self.f)
-    #self.connect(self.u, self.skip, self.chop, self.f)
-    #self.connect(self.chop, self.complex_to_angle, self.f2)
+    tb.connect(file_in, agc, skip, matchfilter, c_f, (lock, 0),  dec, vect)
+    tb.connect(skip, preamble_filter, c_f2, pd, (lock, 1))
 
   def set_freq(self,target_freq):
     r = self.u.tune(self.subdev.which(),self.subdev,target_freq)
@@ -123,7 +137,7 @@ class transmit_path(gr.hier_block2):
 
     # constants for usrp
     usrp_rate = 128000000
-    usrp_interp = 256
+    usrp_interp = 200
     tari_rate = 40000
     gain = 5000
 
@@ -133,7 +147,14 @@ class transmit_path(gr.hier_block2):
     if testit:
       self.downlink = gr.file_source(gr.sizeof_gr_complex, "readout.dat", True)
     else:
-      self.downlink = rfidbts.downlink_src(tari_rate,usrp_rate/usrp_interp)
+      self.downlink = rfidbts.downlink_src(
+                samp_per_delimiter = 8, 
+                samp_per_cw = 64 * 16 * 60,
+                samp_per_wait = 64 * 16 * 4,
+                samp_per_tari = 16,
+                samp_per_pw = 8,
+                samp_per_trcal = 53,
+                samp_per_data1 = 32)
 
     if run_usrp:
       self.sink = downlink_usrp_sink(options,usrp_rate,usrp_interp,tari_rate)
@@ -226,8 +247,7 @@ def main():
   #Initially send something to the tag
   time.sleep(.1)  
   code = get_code("q")
-  code2 = get_code("ak")
-  tb.tx_path.downlink.send_pkt(code)
+  tb.tx_path.downlink.send_pkt_preamble(code)
   #tb.tx_path.downlink.send_pkt(code2)
   #for i in range(10):
   #    tb.tx_path.downlink.send_pkt(code)
@@ -272,8 +292,8 @@ def get_code(com):
 		else:
 			return 0
 	if com == "q":
-		stream = "410000101000000111"
-		return (stream + make3_crc_5(stream[1:]))
+		stream = (1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+		return (stream)
 		#return stream
 	if com == "ak":
 		return ("5010000000000000111")
@@ -321,8 +341,11 @@ def control_loop(tb):
 		# If the command is ok then output the bytes associated with it to the modulating block
 		# This works if the power is off or on.
       if code != 0:
-        tb.tx_path.downlink.send_pkt(code)
-        print("Command sent")		
+        tb.tx_path.downlink.send_pkt_preamble(code)
+        time.sleep(.1) 
+        print("Command sent")
+        print tb.tx_path.vect.data() 	
+        tb.tx_path.vect.clear()	
       else:
         print("Uknown command.")
 	
