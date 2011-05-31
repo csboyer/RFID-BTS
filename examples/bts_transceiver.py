@@ -7,6 +7,28 @@ from gnuradio.eng_option import eng_option
 from bitarray import bitarray
 import rfidbts
 
+# This block decodes half symbols into 0s and 1s
+class symbols_decoder(gr.hier_block2):
+    def __init__(self):
+        gr.hier_block2.__init__(
+                self, 
+                "dc_block",
+                gr.io_signature(1, 1, gr.sizeof_float),
+                gr.io_signature(1, 1, gr.sizeof_float))
+        # set up paralell match filters
+        match0 = [1, 1]
+        match1 = [1, -1]
+        self.match_filt0 = gr.fir_filter_fff(1, match0)
+        self.match_filt1 = gr.fir_filter_fff(1, match1)
+        # Decimate by two because there are two samples per symbol
+        self.destroy0 = gr.keep_one_in_n(gr.sizeof_float, 2)
+        self.destroy1 = gr.keep_one_in_n(gr.sizeof_float, 2)
+        # Compare the two match filters
+        self.compare = rfidbts.compare()
+        # Connect it all
+        self.connect(self, self.match_filt0, self.destroy0, (self.compare, 0), self)
+        self.connect(self, self.match_filt1, self.destroy1, (self.compare, 1))
+
 class transceiver(gr.hier_block2):
     def __init__(self):
         gr.hier_block2.__init__(

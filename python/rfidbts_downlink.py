@@ -58,11 +58,6 @@ class downlink_src(gr.hier_block2):
             self)
 
   def send_pkt_preamble(self, msg):
-      #      msg.append(0)
-      #msg.append(0)
-      #msg.append(0)
-      #msg.append(0)
-      #msg.append(0)
       msgs = str(msg)
       msgs = msgs[1:len(msgs)-1:3]
       crc = make3_crc_5(msgs)
