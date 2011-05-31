@@ -159,8 +159,8 @@ void rfidbts_preamble_det::send_frame_samples(int start_index) {
         return;
     }
     //use the preamble to lock onto timing. . .the preamble should be good enough to do this?
-    frame_start = d_samp_buffer + start_index - d_rpreamble.size();
-    message_frame = string((char*) frame_start, (d_samples_per_frame - start_index + d_rpreamble.size()) * sizeof(gr_complex));
+    frame_start = d_samp_buffer + start_index - d_rpreamble.size() - (4 * 2 * 8)  + 1;
+    message_frame = string((char*) frame_start, (d_samples_per_frame - start_index + d_rpreamble.size() + (4 * 2 * 8) - 1) * sizeof(gr_complex));
     d_shared_q->insert_tail(gr_make_message_from_string(message_frame));
     
     cout << "Preamble detected sent frame to decoder" << endl;
