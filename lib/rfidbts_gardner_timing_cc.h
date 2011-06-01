@@ -65,6 +65,8 @@ protected:
                              float omega_relative_limit);
 
  private:
+
+  int debug_count;
   float d_mu;
   float d_omega;
   float d_omega_gain;

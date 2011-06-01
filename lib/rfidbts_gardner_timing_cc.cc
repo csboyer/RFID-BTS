@@ -33,7 +33,7 @@
 #include <cstdio>
 #include <cfloat>
 
-//#define GARDNER_DEBUG
+#define GARDNER_DEBUG
 
 
 #include <iostream>
@@ -70,7 +70,7 @@ rfidbts_gardner_timing_cc::rfidbts_gardner_timing_cc (
 {
   float prev_gain = 1.0;
 
-  d_omega_gain = 0.05;
+  d_omega_gain = 0.18;
   set_omega(omega);
   set_relative_rate(1 / omega);
 
@@ -84,6 +84,8 @@ rfidbts_gardner_timing_cc::rfidbts_gardner_timing_cc (
   }
   //initalize filters to state 0.0
   d_loop_filt_states.assign(pll_gains.size(),0.0);
+
+  debug_count = 0;
 }
 
 rfidbts_gardner_timing_cc::~rfidbts_gardner_timing_cc ()
@@ -115,7 +117,8 @@ rfidbts_gardner_timing_cc::gen_output_error(const gr_complex *in) {
                  imag(d_p_1T) * (imag(d_p_0T) - imag(d_p_2T));
     //g_val = -1 * g_val;
 #ifdef GARDNER_DEBUG
-    cout << "Interp and Calc timing error, g_val:" << g_val  << " Mu:" << d_mu << " In:" << *in << " Out:" << d_p_0T << endl;
+    cout << "Interp and Calc timing error, g_val:" << g_val  << " Mu:" << d_mu << " Cnt:" << debug_count << endl;
+    debug_count++;
 #endif
     //cap the error by 1.0
     g_val = gr_branchless_clip(g_val,1.0);
