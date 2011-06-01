@@ -13,8 +13,8 @@ class app_top_block(gr.top_block):
     def __init__(self):
         gr.top_block.__init__(self)
 
-        xmtr_hack = True
-        rcvr_hack = True
+        xmtr_hack = False
+        rcvr_hack = False
         
         self.options = self.run_parser()
         self.transceiver = bts_transceiver.transceiver()
@@ -148,7 +148,6 @@ def get_code(com):
 		else:
 			return 0
 	if com == "q":
-		tb.transceiver.snd_query()
 		return 1
 		#return stream
 	if com == "ak":

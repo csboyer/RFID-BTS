@@ -161,8 +161,8 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
     while(oo < noutput_items && ii < ni) {
         //save old sample and interpolate based on new mu
         d_p_2T = d_p_0T;
-        d_p_0T = d_interp->interpolate(&in[ii], 
-                                       d_mu);
+
+        d_p_0T = d_interp->interpolate(&in[ii], d_mu);
         //calculate error
         g_val = real(d_p_1T) * (real(d_p_0T) - real(d_p_2T)) +
                 imag(d_p_1T) * (imag(d_p_0T) - imag(d_p_2T));
@@ -172,9 +172,10 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
         d_omega = d_omega + d_gain_omega * g_val;
         //cap the integrator
         d_omega = d_omega_mid + gr_branchless_clip(d_omega-d_omega_mid, d_omega_relative_limit);
+
         //exact number of samples to advance into the future
-        d_mu += d_omega + d_gain_mu * g_val;
-        
+        d_mu = d_mu + d_omega + d_gain_mu * g_val;
+
         //Now calculate the mid symbol point 
         half_point = (int) floor(d_mu / 2);
         frac_half_point = d_mu/2 - floor(d_mu / 2);
@@ -183,17 +184,21 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
                                        frac_half_point);
 
         //whole samples to advance by
-        ii += (int) floor(d_mu);
+        ii = ii + (int) floor(d_mu);
+      
         //fractional samples to advance
-        d_mu =- floor(d_mu);
-
+        d_mu = d_mu - floor(d_mu);
+        
         out[oo] = d_p_0T;
        
         oo++;
     }
   }
-
+  
+  cout << "in " << ii << " out " << oo;
   consume_each (ii);
+
+
 
   return oo;
 }

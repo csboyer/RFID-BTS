@@ -5,6 +5,7 @@ from gnuradio.eng_option import eng_option
 from optparse import OptionParser
 import howto
 import rfidbts
+import time
 
 class downlink_test_file_sink(gr.hier_block2):
   def __init__(self,usrp_rate,usrp_interp):
@@ -88,33 +89,34 @@ class recieve_path(gr.hier_block2):
       print "Failed to set initial frequency"
 
     #set up the rest of the path
+    deci = 1
 
-    dc_block_filt = dc_block(4)
-    agc = gr.agc_cc( rate = 1e-7, reference = 1.0, gain = 0.001, max_gain = 0.5)
+    self.agc = gr.agc_cc( rate = 1e-7, reference = 1.0, gain = 0.001, max_gain = 0.5)
 
     matchtaps = [complex(-1,-1)] * 8 + [complex(1,1)] * 8 + [complex(-1,-1)]* 8 + [complex(1,1)]* 8
     #matchtaps = [complex(-1,-1)] * 8 + [complex(1,1)] * 8 
-    matchfilter = gr.fir_filter_ccc(1, matchtaps)
+    self.matchfilter = gr.fir_filter_ccc(1, matchtaps)
 
     reverse = [complex(1,1)] * (8 / deci) + [complex(-1,-1)] * (8 / deci) + [complex(1,1)]* (8 / deci) + [complex(-1,-1)]* (8 / deci)
     #pretaps = matchtaps * 3 + reverse * 4 + matchtaps * 4 + reverse * 8 + matchtaps * 6 + matchtaps * 62
     pretaps = matchtaps * 2 + reverse * 2 + matchtaps * 2 + reverse * 4 + matchtaps * 3 + matchtaps * 31
     #pretaps =  matchtaps * 3 + reverse * 8 + matchtaps * 6 + matchtaps * 64
-    preamble_filter = gr.fir_filter_ccc(1, pretaps)
+    self.preamble_filter = gr.fir_filter_ccc(1, pretaps)
 
-    c_f = gr.complex_to_real()
-    c_f2 = gr.complex_to_real()
+    self.c_f = gr.complex_to_real()
+    self.c_f2 = gr.complex_to_real()
 
-    lock = howto.lock_time(32, 5, 32)
+    self.lock = howto.lock_time(32, 5, 32)
 
-    pd = howto.find_pre_ff(55, 200)
+    self.pd = howto.find_pre_ff(55, 200)
 
-    dec = symbols_decoder()
+    self.dec = symbols_decoder()
 
     self.vect = gr.vector_sink_f()
     
-    tb.connect(file_in, agc, skip, matchfilter, c_f, (lock, 0),  dec, vect)
-    tb.connect(skip, preamble_filter, c_f2, pd, (lock, 1))
+    #self.connect(self.u, self.agc, self.matchfilter, self.c_f, (self.lock, 0),  self.dec, self.vect)
+    #self.connect(self.agc, self.preamble_filter, self.c_f2, self.pd, (self.lock, 1))
+    self.connect(self.u, self.agc, self.matchfilter, self.c_f, self.vect)
 
   def set_freq(self,target_freq):
     r = self.u.tune(self.subdev.which(),self.subdev,target_freq)
@@ -151,9 +153,9 @@ class transmit_path(gr.hier_block2):
                 samp_per_delimiter = 8, 
                 samp_per_cw = 64 * 16 * 60,
                 samp_per_wait = 64 * 16 * 4,
-                samp_per_tari = 16,
+                samp_per_tari = 16 ,
                 samp_per_pw = 8,
-                samp_per_trcal = 53,
+                samp_per_trcal = 53 ,
                 samp_per_data1 = 32)
 
     if run_usrp:
@@ -344,8 +346,8 @@ def control_loop(tb):
         tb.tx_path.downlink.send_pkt_preamble(code)
         time.sleep(.1) 
         print("Command sent")
-        print tb.tx_path.vect.data() 	
-        tb.tx_path.vect.clear()	
+        print tb.rx_path.vect.data() 	
+        tb.rx_path.vect.clear()	
       else:
         print("Uknown command.")
 	

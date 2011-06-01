@@ -56,11 +56,7 @@ class transceiver(gr.hier_block2):
         self.preamble = rfidbts.preamble_det(shared_q = self.msg_queue,
                                              samples_per_frame = 985,
                                              detection_threshold = 0.0)
-        self.timing_sync = rfidbts.gardner_timing_cc(mu = 0.0,
-                                       gain_mu = 0.01
-                                       omega = 8.0,
-                                       gain_omega = 0.1,
-                                       omega_relative_limit = 1.0)
+        self.timing_sync = rfidbts.gardner_timing_cc(0.0, 0,   8.0, 0.1,  1.0)
 # tari 25us = 16 samples
 # delimiter 12.5 us = 8 samples 
 # data1 = 2.0 tari = 50 us = 32 samples
