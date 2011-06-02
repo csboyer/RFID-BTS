@@ -148,7 +148,7 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
         //whole samples to advance by
         ii += (int) floor(d_mu);
         //fractional samples to advance
-        d_mu =- floor(d_mu);
+        d_mu = d_mu - floor(d_mu);
 
         // write the error signal to the second output
         foptr[oo] = gr_complex(g_val,0);
@@ -185,7 +185,7 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
         //whole samples to advance by
         ii += (int) floor(d_mu);
         //fractional samples to advance
-        d_mu =- floor(d_mu);
+        d_mu = d_mu - floor(d_mu);
 
         out[oo] = d_p_0T;
        
