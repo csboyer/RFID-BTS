@@ -148,7 +148,6 @@ def get_code(com):
 		else:
 			return 0
 	if com == "q":
-		#tb.transceiver.snd_query()
 		return 1
 		#return stream
 	if com == "ak":
