@@ -35,7 +35,7 @@ typedef boost::shared_ptr<rfidbts_gardner_timing_cc> rfidbts_gardner_timing_cc_s
 
 // public constructor
 rfidbts_gardner_timing_cc_sptr 
-rfidbts_make_gardner_timing_cc (float mu, float gain_mu, float omega, float gain_omega, float omega_relative_limit);
+rfidbts_make_gardner_timing_cc (float mu, float omega, const std::vector<float> &pll_gains, float omega_relative_limit);
 
 class rfidbts_gardner_timing_cc : public gr_block
 {
@@ -47,10 +47,8 @@ class rfidbts_gardner_timing_cc : public gr_block
 		    gr_vector_const_void_star &input_items,
 		    gr_vector_void_star &output_items);
   float mu() const { return d_mu;}
-  float gain_mu() const { return d_gain_mu;}
   void set_verbose (bool verbose) { d_verbose = verbose; }
 
-  void set_gain_mu (float gain_mu) { d_gain_mu = gain_mu; }
   void set_mu (float mu) { d_mu = mu; }
   
   void set_omega (float omega) {
@@ -62,21 +60,29 @@ class rfidbts_gardner_timing_cc : public gr_block
 
 protected:
   rfidbts_gardner_timing_cc (float mu, 
-                             float gain_mu, 
                              float omega, 
-                             float gain_omega, 
+                             const std::vector<float> &pll_gains,
                              float omega_relative_limit);
 
  private:
-  float g_val;
+
+  int debug_count;
   float d_mu;
-  float d_gain_mu;
   float d_omega;
-  float d_gain_omega; 
+  float d_omega_gain;
+
+  int d_mid_sample;
+  float d_mid_mu;
+  int d_forward_sample;
+  float d_forward_mu;
+
   float d_omega_relative_limit;
   float d_min_omega;
   float d_max_omega;
   float d_omega_mid;
+
+  std::vector<float> d_loop_filt_gains;
+  std::vector<float> d_loop_filt_states;
 
   gri_mmse_fir_interpolator_cc 	*d_interp;
   bool			        d_verbose;
@@ -85,11 +91,14 @@ protected:
   gr_complex                    d_p_1T;
   gr_complex                    d_p_0T;
 
+  void update_loopfilter(float timing_error);
+  int update_vco();
+  float gen_output_error(const gr_complex *in);
+
   friend rfidbts_gardner_timing_cc_sptr
   rfidbts_make_gardner_timing_cc (float mu, 
-                                  float gain_mu, 
                                   float omega, 
-                                  float gain_omega, 
+                                  const std::vector<float> &pll_gains,
                                   float omega_relative_limit);
 };
 
