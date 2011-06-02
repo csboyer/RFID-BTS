@@ -254,7 +254,6 @@ rfidbts_gardner_timing_cc::general_work (int noutput_items,
     }
   }
   
-  cout << "in " << ii << " out " << oo;
   consume_each (ii);
 
 
