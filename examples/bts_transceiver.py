@@ -86,6 +86,7 @@ class transceiver(gr.hier_block2):
         self.bit_dump = gr.file_sink(itemsize = gr.sizeof_char,
                                      filename = "decoded_msg.dat")
 #TX Block
+
 # tari 25us = 16 samples
 # delimiter 12.5 us = 8 samples 
 # data1 = 2.0 tari = 50 us = 32 samples
