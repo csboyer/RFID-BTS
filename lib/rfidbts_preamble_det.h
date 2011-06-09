@@ -32,37 +32,45 @@
 class rfidbts_preamble_det;
 typedef boost::shared_ptr<rfidbts_preamble_det> rfidbts_preamble_det_sptr;
 
-rfidbts_preamble_det_sptr rfidbts_make_preamble_det(gr_msg_queue_sptr shared_q, 
-                                                    int samples_per_frame,
-                                                    float detection_threshold);
+rfidbts_preamble_det_sptr rfidbts_make_preamble_det(float detection_threshold,
+                                                    int samples_in_frame,
+                                                    int samples_out_frame);
 
 class rfidbts_preamble_det : public gr_block
 {
+    enum State {GATHER_SAMPLES, SEARCH, OUTPUT_FRAME};
 private:
-    gr_msg_queue_sptr d_shared_q;
     int d_samples_per_frame;
+    int d_samples_per_outframe;
+    int d_offset_from_preamble;
     float d_detection_threshold;
-
     int d_sample_count;
+
+    State d_state;
+    int d_frame_start;
+    int d_frame_end;
+
+    int d_num_phases;
     gr_complex *d_samp_buffer;
+    gr_complex **d_phase_shifted;
     gr_complex *d_correlation_buffer;
 
     gri_fir_filter_with_buffer_ccf *d_correlator;
-    
+    gri_fir_filter_with_buffer_ccf *d_phase_shifter;
     std::vector<float> d_rpreamble;
 
     int find_frame_start();
-    void send_frame_samples(int start_index);
+    int send_frame_samples(int req_samples, gr_complex *out);
 
 
-    friend rfidbts_preamble_det_sptr rfidbts_make_preamble_det(gr_msg_queue_sptr shared_q,
-                                                               int samples_per_frame,
-                                                               float detection_threshold);
+    friend rfidbts_preamble_det_sptr rfidbts_make_preamble_det(float detection_threshold,
+                                                               int samples_in_frame,
+                                                               int samples_out_frame);
 
 protected:
-  rfidbts_preamble_det(gr_msg_queue_sptr shared_q,
-                       int samples_per_frame,
-                       float detection_threshold);
+  rfidbts_preamble_det(float detection_threshold,
+                       int samples_in_frame,
+                       int samples_out_frame);
 
 public:
   ~rfidbts_preamble_det();

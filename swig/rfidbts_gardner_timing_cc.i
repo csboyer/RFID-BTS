@@ -30,11 +30,11 @@
 
 
 GR_SWIG_BLOCK_MAGIC(rfidbts,gardner_timing_cc);
-rfidbts_gardner_timing_cc_sptr rfidbts_make_gardner_timing_cc (float mu, float omega, const std::vector<float> &pll_gains, float omega_relative_limit);
+rfidbts_gardner_timing_cc_sptr rfidbts_make_gardner_timing_cc (float mu, float omega, const std::vector<float> &pll_gains, float omega_relative_limit, int in_frame_size, int out_frame_size);
 
 class rfidbts_gardner_timing_cc : public gr_block
 {
  protected:
-  rfidbits_gardner_timing_cc(float mu, float omega, std::vector<float> &pll_gains, float omega_relative_limit);
+  rfidbits_gardner_timing_cc(float mu, float omega, std::vector<float> &pll_gains, float omega_relative_limit, int in_frame_size, int out_frame_size);
 };
 

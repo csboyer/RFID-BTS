@@ -35,7 +35,7 @@ typedef boost::shared_ptr<rfidbts_gardner_timing_cc> rfidbts_gardner_timing_cc_s
 
 // public constructor
 rfidbts_gardner_timing_cc_sptr 
-rfidbts_make_gardner_timing_cc (float mu, float omega, const std::vector<float> &pll_gains, float omega_relative_limit);
+rfidbts_make_gardner_timing_cc (float mu, float omega, const std::vector<float> &pll_gains, float omega_relative_limit, int in_frame_size, int out_frame_size);
 
 class rfidbts_gardner_timing_cc : public gr_block
 {
@@ -62,14 +62,23 @@ protected:
   rfidbts_gardner_timing_cc (float mu, 
                              float omega, 
                              const std::vector<float> &pll_gains,
-                             float omega_relative_limit);
+                             float omega_relative_limit,
+                             int in_frame_size,
+                             int out_frame_size);
 
  private:
 
   int debug_count;
   float d_mu;
+  float d_mu_init;
   float d_omega;
+  float d_omega_init;
   float d_omega_gain;
+
+  int d_in_frame_size;
+  int d_out_frame_size;
+  int d_in_received;
+  int d_out_sent;
 
   int d_mid_sample;
   float d_mid_mu;
@@ -99,7 +108,9 @@ protected:
   rfidbts_make_gardner_timing_cc (float mu, 
                                   float omega, 
                                   const std::vector<float> &pll_gains,
-                                  float omega_relative_limit);
+                                  float omega_relative_limit,
+                                  int in_frame_size,
+                                  int out_frame_size);
 };
 
 #endif

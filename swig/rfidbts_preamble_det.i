@@ -30,11 +30,11 @@
 
 
 GR_SWIG_BLOCK_MAGIC(rfidbts,preamble_det);
-rfidbts_preamble_det_sptr rfidbts_make_preamble_det (gr_msg_queue_sptr shared_q, int samples_per_frame, float detection_threshold);
+rfidbts_preamble_det_sptr rfidbts_make_preamble_det (float detection_threshold, int samples_in_frame, int samples_out_frame);
 
 class rfidbts_preamble_det : public gr_block
 {
  protected:
-  rfidbits_preamble_det(gr_msg_queue_sptr shared_q, int samples_per_frame, float detection_threshold);
+  rfidbits_preamble_det(float detection_threshold, int samples_in_frame, int samples_out_frame);
 };
 
