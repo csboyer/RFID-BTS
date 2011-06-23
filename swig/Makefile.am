@@ -51,7 +51,8 @@ rfidbts_swiginclude_headers = \
 	rfidbts_downlink.i \
 	rfidbts_preamble_det.i \
 	rfidbts_gardner_timing_cc.i \
+	rfidbts_elg_timing_cc.i \
 	rfidbts_receive_gate.i \
-        rfidbts_compare.i
+    rfidbts_pick.i 
 
 endif

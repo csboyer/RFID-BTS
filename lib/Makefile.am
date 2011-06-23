@@ -33,8 +33,9 @@ modinclude_HEADERS = \
 	rfidbts_pie_encoder.h \
     rfidbts_preamble_det.h \
     rfidbts_gardner_timing_cc.h \
+    rfidbts_elg_timing_cc.h \
     rfidbts_receive_gate.h \
-    rfidbts_compare.h
+    rfidbts_pick.h 
     
         
 
@@ -44,8 +45,9 @@ libgnuradio_rfidbts_la_SOURCES = \
 	rfidbts_pie_encoder.cc \
     rfidbts_preamble_det.cc \
     rfidbts_gardner_timing_cc.cc \
+    rfidbts_elg_timing_cc.cc \
     rfidbts_receive_gate.cc \
-    rfidbts_compare.cc
+    rfidbts_pick.cc 
 
 libgnuradio_rfidbts_la_LIBADD = \
 	$(GNURADIO_CORE_LA)

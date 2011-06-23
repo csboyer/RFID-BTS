@@ -24,7 +24,7 @@
 #include "config.h"
 #endif
 
-#define D_PIE
+//#define D_PIE
 #ifdef D_PIE
 #include <iostream>
 #endif

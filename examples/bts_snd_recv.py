@@ -17,7 +17,7 @@ class app_top_block(gr.top_block):
         rcvr_hack = False
         
         self.options = self.run_parser()
-        self.transceiver = bts_transceiver.transceiver()
+        self.transceiver = bts_transceiver.proto_transceiver()
         if rcvr_hack:
             self.src = gr.file_source(
                     itemsize = gr.sizeof_gr_complex,
@@ -69,8 +69,8 @@ class app_top_block(gr.top_block):
         parser.add_option("", "--rx-samp-rate", type="eng_float", default=1e6, help="RX sample rate for UHD, [default=%default]")
         parser.add_option("", "--tx-samp-rate", type="eng_float", default=640e3, help="TX sample rate for UHD, [default=%default]")
         parser.add_option("", "--frequency", type="eng_float", default=915e6, help="TX/RX frequency, [default=%default]")
-        parser.add_option("", "--rx-gain", type="eng_float", default=65, help="Gain for RX and TX, [default=%default]")
-        parser.add_option("", "--tx-gain", type="eng_float", default=-3, help="Gain for RX and TX, [default=%default]")
+        parser.add_option("", "--rx-gain", type="eng_float", default=60, help="Gain for RX and TX, [default=%default]")
+        parser.add_option("", "--tx-gain", type="eng_float", default=-1, help="Gain for RX and TX, [default=%default]")
         (options, args) = parser.parse_args()
 #checked for unparsed options
         if len(args) != 0:
@@ -169,7 +169,7 @@ def control_loop(tb):
   pwr_on = True
   com = "nothing"
   while com != "e":
-    com = raw_input("Command: ")
+    com = raw_input("Command: \n")
     if com == "start":
       if pwr_on == False:	
         pwr_on = True
