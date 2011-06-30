@@ -29,34 +29,15 @@
 
 class rfidbts_pick_peak;
 typedef boost::shared_ptr<rfidbts_pick_peak> rfidbts_pick_peak_sptr;
-
-rfidbts_pick_peak_sptr rfidbts_make_pick_peak();
-
-
-class rfidbts_pick_peak : public gr_sync_block
-{
-private:
-  friend rfidbts_pick_peak_sptr  rfidbts_make_pick_peak();
-  void generate_mux_commands(bool copy, char in_sel, int len, void* buf);
-
-  gr_msg_queue_sptr d_queue;
-protected:  
-  rfidbts_pick_peak ();
-public:
-  struct peak_count_pair {
-      float peak;
-      int count;
-  };
-  void set_msg_queue(gr_msg_queue_sptr q) {
-      d_queue = q;
-  }
-  int work (int noutput_items,
-	        gr_vector_const_void_star &input_items,
-	        gr_vector_void_star &output_items);
-};
-//////////////////
 class rfidbts_peak_count_stream;
 typedef boost::shared_ptr<rfidbts_peak_count_stream> rfidbts_peak_count_stream_sptr;
+class rfidbts_mux_slice_dice;
+typedef boost::shared_ptr<rfidbts_mux_slice_dice> rfidbts_mux_slice_dice_sptr;
+class rfidbts_packetizer;
+typedef boost::shared_ptr<rfidbts_packetizer> rfidbts_packetizer_sptr;
+
+
+//////////////////
 
 rfidbts_peak_count_stream_sptr rfidbts_make_peak_count_stream(int frame_sample_len, int preamble_thresh);
 
@@ -80,8 +61,6 @@ public:
 };
 
 ///////////////////////////////////////
-class rfidbts_mux_slice_dice;
-typedef boost::shared_ptr<rfidbts_mux_slice_dice> rfidbts_mux_slice_dice_sptr;
 
 rfidbts_mux_slice_dice_sptr rfidbts_make_mux_slice_dice(int itemsize);
 
@@ -90,10 +69,11 @@ class rfidbts_mux_slice_dice : public gr_block
 protected:
     rfidbts_mux_slice_dice(int itemsize);
 public:
+    enum mux_ctrl_cmd {MUX_DELETE, MUX_COPY, MUX_FLUSH, MUX_TAG};
     struct mux_ctrl_msg {
         int len;
         char in_sel;
-        char copy;
+        mux_ctrl_cmd cmd;
     };
 
     void set_msg_queue(gr_msg_queue_sptr q) {
@@ -106,16 +86,71 @@ public:
                      gr_vector_void_star &output_items);
 private:
     friend rfidbts_mux_slice_dice_sptr rfidbts_make_mux_slice_dice(int itemsize);
-    void pop_next_cmd();
-    enum State {WAIT, COPY, DELETE};
+    enum State {WAIT, COPY, TAG_COPY, DELETE, DELETE_FLUSH};
 
     State d_state;
 
     gr_message_sptr d_current_msg;
-    mux_ctrl_msg *d_current_cmd;
+    mux_ctrl_msg d_current_cmd;
     int d_cmds_to_process;
     int d_itemsize;
     gr_msg_queue_sptr d_queue;
+
+    void set_state();
+    void pop_next_cmd();
+    int search_for_tag(int offset, int input_items);
+    void tag_symbol_boundry(int offset);
+};
+
+/////////////////
+
+rfidbts_pick_peak_sptr rfidbts_make_pick_peak();
+
+class rfidbts_pick_peak : public gr_sync_block
+{
+private:
+  friend rfidbts_pick_peak_sptr  rfidbts_make_pick_peak();
+  void flush_all_buffers(int connections);
+  gr_message_sptr generate_message();
+  void generate_mux_commands(rfidbts_mux_slice_dice::mux_ctrl_cmd, char in_sel, int len, gr_message_sptr msg);
+
+  gr_msg_queue_sptr d_queue;
+protected:  
+  rfidbts_pick_peak ();
+public:
+  struct peak_count_pair {
+      float peak;
+      int count;
+  };
+  void set_msg_queue(gr_msg_queue_sptr q) {
+      d_queue = q;
+  }
+  int work (int noutput_items,
+	        gr_vector_const_void_star &input_items,
+	        gr_vector_void_star &output_items);
+};
+
+///////////////////////////
+
+rfidbts_packetizer_sptr rfidbts_make_packetizer();
+
+class rfidbts_packetizer : public gr_sync_block
+{
+private:
+    friend rfidbts_packetizer_sptr rfidbts_make_packetizer();
+    enum state {IDLE, OFFSET, GET_FRAME};
+
+    state d_state;
+    int d_bit_offset;
+    int d_packet_len;
+    std::vector<char> d_packet;
+protected:
+    rfidbts_packetizer();
+public:
+    int work(int noutput_items,
+             gr_vector_const_void_star &input_items,
+             gr_vector_void_star &output_items);
+
 };
 
 #endif

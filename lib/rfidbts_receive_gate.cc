@@ -126,6 +126,17 @@ int rfidbts_receive_gate::general_work(
                     d_state = ST_TXON_MUTE;
                     d_pw_count = 0;
                 }
+                else if(d_unmute_count == d_mute_buffer) {
+                    stringstream str;
+                    str << name() << unique_id();
+                    pmt::pmt_t k = pmt::pmt_string_to_symbol("burst");
+                    pmt::pmt_t v = pmt::PMT_T;
+                    pmt::pmt_t i = pmt::pmt_string_to_symbol(str.str());
+                    add_item_tag(0, nitems_written(0) + ii, k, v, i);
+                    out[oo] = in[ii];
+                    oo++;
+                    d_unmute_count++;
+                }
                 else {
                     out[oo] = in[ii];
                     oo++;

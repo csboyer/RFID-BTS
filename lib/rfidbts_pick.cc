@@ -25,10 +25,14 @@
 #endif
 
 #include <rfidbts_pick.h>
+#include <rfidbts_controller.h>
 #include <gr_io_signature.h>
 #include <string.h>
 #include <iostream>
 #include <gr_message.h>
+#include <gr_tag_info.h>
+
+extern rfidbts_controller_sptr rfid_mac;
 
 #define PICK_PEAK_DEBUG
 #define PEAK_COUNT_DEBUG
@@ -52,14 +56,14 @@ int
 rfidbts_pick_peak::work (int noutput_items,
 			             gr_vector_const_void_star &input_items,
 			             gr_vector_void_star &output_items) {
-    int connections;
     int ii;
     int best_index;
     int best_correlator;
+    int connections;
     float best_so_far;
     peak_count_pair *in;
     gr_message_sptr msg;
-    rfidbts_mux_slice_dice::mux_ctrl_msg *ctrl_msg;
+    rfidbts_controller::preamble_search_task task;
 
     assert(noutput_items > 0);
     connections = input_items.size();
@@ -74,44 +78,68 @@ rfidbts_pick_peak::work (int noutput_items,
         }
     }
 
-    msg = gr_make_message(0, 
-                          sizeof(rfidbts_mux_slice_dice::mux_ctrl_msg), 
-                          2, 
-                          2 * sizeof(rfidbts_mux_slice_dice::mux_ctrl_msg));
-    ctrl_msg = (rfidbts_mux_slice_dice::mux_ctrl_msg*) msg->msg();
 
     if(best_so_far > 0.0) {
 #ifdef PICK_PEAK_DEBUG
         cout << "Best peak: " << best_so_far << " Found at index: " <<
                  best_index << " Correlator: " << best_correlator << endl;
 #endif
+        rfid_mac->preamble_search(true, task);
         //want to offset so the preamble can be used for loop filter settle time
-        generate_mux_commands(false, best_correlator, best_index + 1 - (12 + 7 + 1) * 8, ctrl_msg);
-        ctrl_msg++;
-        generate_mux_commands(true, best_correlator, 500, ctrl_msg);
-        ctrl_msg++;
-        for(ii = 0; ii < connections; ii++) {
-            if(ii != best_correlator) {
-                //add delete functionality next
-            }
-        }
-        assert(d_queue);
+        msg = generate_message();
+        generate_mux_commands(rfidbts_mux_slice_dice::MUX_DELETE, 
+                              best_correlator, best_index + 1 - (12 + 7 + 1) * 8, msg);
+        d_queue->handle(msg);
+        //copy out start of frame!
+        msg = generate_message();
+        generate_mux_commands(rfidbts_mux_slice_dice::MUX_COPY, best_correlator, 2 * 8, msg);
+        d_queue->handle(msg);
+
+        msg = generate_message();
+        generate_mux_commands(rfidbts_mux_slice_dice::MUX_TAG, best_correlator, 0, msg);
+        d_queue->handle(msg);
+
+        msg = generate_message();
+        generate_mux_commands(rfidbts_mux_slice_dice::MUX_COPY, 
+                              best_correlator, 480, msg);
         d_queue->handle(msg);
     }
     else {
+        rfid_mac->preamble_search(false, task);
     }
-    
+
+    flush_all_buffers(connections);
+
     return 1; 
 }
 
-void rfidbts_pick_peak::generate_mux_commands(bool copy, char in_sel, int len, void* buf) {
+void rfidbts_pick_peak::flush_all_buffers(int connections) {
+    gr_message_sptr msg;
+
+    assert(d_queue);
+    for(char ii = 0; ii < connections; ii++) {
+        msg = generate_message();
+        generate_mux_commands(rfidbts_mux_slice_dice::MUX_FLUSH,
+                              ii, -1, msg);
+        d_queue->handle(msg);
+    }
+}
+
+gr_message_sptr rfidbts_pick_peak::generate_message() {
+    return gr_make_message(0,
+                           sizeof(rfidbts_mux_slice_dice::mux_ctrl_msg),
+                           1,
+                           sizeof(rfidbts_mux_slice_dice::mux_ctrl_msg));
+}
+
+void rfidbts_pick_peak::generate_mux_commands(rfidbts_mux_slice_dice::mux_ctrl_cmd cmd, char in_sel, int len, gr_message_sptr msg) {
     rfidbts_mux_slice_dice::mux_ctrl_msg m;
 
     m.len = len;
     m.in_sel = in_sel;
-    m.copy = copy;
+    m.cmd = cmd;
 
-    memcpy(buf, &m, sizeof(rfidbts_mux_slice_dice::mux_ctrl_msg));
+    memcpy(msg->msg(), &m, sizeof(rfidbts_mux_slice_dice::mux_ctrl_msg));
 }
 ///////////////////
 
@@ -143,11 +171,13 @@ rfidbts_peak_count_stream::general_work (int noutput_items,
     int ii;
     int oo;
     int min_in;
+    vector<pmt::pmt_t> tags;
 
     assert(noutput_items > 0);
     oo = 0;
+    ii = 0;
     min_in = min(ninput_items[0], ninput_items[1]);
-    for(ii = 0; ii < min_in; ii++) {
+    while(ii < min_in) {
         switch(d_state) {
             case SEARCH_ACTIVE:
                 //look for a detected peak, note the location in the sample stream. Send to pick max block
@@ -171,19 +201,21 @@ rfidbts_peak_count_stream::general_work (int noutput_items,
                     oo++;
                     d_state = WAIT_NEW_FRAME;
                 }
+                ii++;
                 d_count++;
                 break;
             case WAIT_NEW_FRAME:
-                //ignore any peaks until the frame rollover
-                if(d_count >= d_frame_sample_len) {
+                get_tags_in_range(tags, 0, nitems_read(0) + ii, 
+                                  nitems_read(0) + min_in, pmt::pmt_string_to_symbol("rfidbts_burst"));
+                sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
+                if(tags.begin() != tags.end()) {
+                    assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
+                    ii = gr_tags::get_nitems(tags[0]) - nitems_read(0);
                     d_count = 0;
                     d_state = SEARCH_ACTIVE;
-#ifdef PEAK_COUNT_DEBUG
-                    cout << "Roll over occured" << endl;
-#endif
                 }
                 else {
-                    d_count++;
+                    ii = min_in;
                 }
                 break;
             default:
@@ -207,6 +239,10 @@ rfidbts_mux_slice_dice::rfidbts_mux_slice_dice(int itemsize) :
     d_itemsize(itemsize),
     d_state(WAIT)
 {
+    tag_propagation_policy_t p;
+    //do not want to propagate any of the tags....make new ones!
+    p = TPP_DONT;
+    set_tag_propagation_policy(p);
 }
 
 int rfidbts_mux_slice_dice::general_work(int noutput_items,
@@ -237,61 +273,79 @@ int rfidbts_mux_slice_dice::general_work(int noutput_items,
                     cout << "Slice and dice received new command" << endl;
 #endif
                     //new command in the queue; pop off
-                    d_current_msg = d_queue->delete_head();
-                    assert(d_current_msg->length() % sizeof(mux_ctrl_msg) == 0);
-                    d_cmds_to_process = (int) d_current_msg->arg2() - 1;
-                    d_current_cmd = (mux_ctrl_msg*) d_current_msg->msg();
+                    current_msg = d_queue->delete_head();
+                    assert(current_msg->length() == sizeof(mux_ctrl_msg));
+                    memcpy(&d_current_cmd, current_msg->msg(), sizeof(mux_ctrl_msg));
                     //set the state for the next command
-                    d_state = (d_current_cmd->copy) ? COPY : DELETE;
-#ifdef MUX_DEBUG
-                    string s = (d_current_cmd->copy)  ? string("COPY") : string("DELETE");
-                    cout << "Going to " << s << " state" << endl;
-#endif
+                    set_state();
                 }
                 break;
             case COPY:
                 //check to see if any more items can be copied; not enough output buffer or not enough input buffer
-                if(oo == noutput_items || ii[d_current_cmd->in_sel] == ninput_items[d_current_cmd->in_sel]) {
+                if(oo == noutput_items || ii[d_current_cmd.in_sel] == ninput_items[d_current_cmd.in_sel]) {
                     loop = false;
                 }
                 else {
                     //figure out how many items we can process
                     smallest = min(noutput_items - oo, 
-                                   min(ninput_items[d_current_cmd->in_sel], d_current_cmd->len));
+                                   min(ninput_items[d_current_cmd.in_sel], d_current_cmd.len));
                     //find correct offset in input buffer
-                    in = (char*) input_items[d_current_cmd->in_sel] + ii[d_current_cmd->in_sel] * d_itemsize;
+                    in = (char*) input_items[d_current_cmd.in_sel] + ii[d_current_cmd.in_sel] * d_itemsize;
                     //copy and update different fields
                     memcpy(out + oo * d_itemsize, in, smallest * d_itemsize);
 #ifdef MUX_DEBUG
                     cout << "S_D copying " << smallest  << " items" << endl;
 #endif
                     oo += smallest;
-                    ii[d_current_cmd->in_sel] += smallest;
-                    d_current_cmd->len = d_current_cmd->len - smallest;
+                    ii[d_current_cmd.in_sel] += smallest;
+                    d_current_cmd.len = d_current_cmd.len - smallest;
                     //see if we are to process next cmd in message
                     pop_next_cmd();
+                }
+                break;
+            case TAG_COPY:
+                //check to see if any more items can be copied; not enough output buffer or not enough input buffer
+                if(oo == noutput_items || ii[d_current_cmd.in_sel] == ninput_items[d_current_cmd.in_sel]) {
+                    loop = false;
+                }
+                else {
+                    in = (char*) input_items[d_current_cmd.in_sel] + ii[d_current_cmd.in_sel] * d_itemsize;
+                    memcpy(out + oo * d_itemsize, in, d_itemsize);
+                    tag_symbol_boundry(oo);                   
+                    oo++;
+                    ii[d_current_cmd.in_sel]++;
+                    d_state = WAIT;
                 }
                 break;
             case DELETE:
                 //check to see if any more items can be copied; not enough input buffer
-                if(ii[d_current_cmd->in_sel] == ninput_items[d_current_cmd->in_sel]) {
+                if(ii[d_current_cmd.in_sel] == ninput_items[d_current_cmd.in_sel]) {
                     loop = false;
                 }
                 else {
                     //figure out how many items we can process
-                    smallest = min(ninput_items[d_current_cmd->in_sel], d_current_cmd->len);
+                    smallest = min(ninput_items[d_current_cmd.in_sel], d_current_cmd.len);
 #ifdef MUX_DEBUG
                     cout << "S_D deleting " << smallest  << " items" << endl;
 #endif
                     //update different fields
-                    ii[d_current_cmd->in_sel] += smallest;
-                    d_current_cmd->len = d_current_cmd->len - smallest;
+                    ii[d_current_cmd.in_sel] += smallest;
+                    d_current_cmd.len = d_current_cmd.len - smallest;
                     //see if we are to process next cmd in message
                     pop_next_cmd();
                 }
                 break;
+            case DELETE_FLUSH:
+                if(ii[d_current_cmd.in_sel] == ninput_items[d_current_cmd.in_sel]) {
+                    loop = false;
+                }
+                else {
+                    ii[d_current_cmd.in_sel] += search_for_tag(ii[d_current_cmd.in_sel], ninput_items[d_current_cmd.in_sel]);
+                }
+                break;
             default:
                 assert(0);
+                break;
         };
     }
 
@@ -301,23 +355,123 @@ int rfidbts_mux_slice_dice::general_work(int noutput_items,
     return oo;
 }
 
-void rfidbts_mux_slice_dice::pop_next_cmd() {
-    assert(d_current_cmd->len >= 0);
-
-    if(d_current_cmd->len > 0) {
-        //do nothing
-    }
-    else if(d_cmds_to_process > 0) {
-        d_current_cmd++;
-        d_state = (d_current_cmd->copy) ? COPY : DELETE;
-        d_cmds_to_process--;
-#ifdef MUX_DEBUG
-                    string s = (d_current_cmd->copy)  ? string("COPY") : string("DELETE");
-                    cout << "Going to " << s << " state" << endl;
-#endif
+int rfidbts_mux_slice_dice::search_for_tag(int offset, int input_items) {
+    vector<pmt::pmt_t> tags;
+    
+    get_tags_in_range(tags, 0, 
+                      nitems_read(d_current_cmd.in_sel) + offset, 
+                      nitems_read(d_current_cmd.in_sel) + input_items, 
+                      pmt::pmt_string_to_symbol("rfidbts_burst"));
+    if(tags.begin() != tags.end()) {
+        sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
+        assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
+        d_state = WAIT;
+        return gr_tags::get_nitems(tags[0]) - 
+               (nitems_read(d_current_cmd.in_sel) + offset);
     }
     else {
+        return input_items - offset;
+    }
+}
+
+void rfidbts_mux_slice_dice::tag_symbol_boundry(int offset) {
+    stringstream str;
+
+    str << name() << unique_id();
+    pmt::pmt_t k = pmt::pmt_string_to_symbol("rfidbts_burst");
+    pmt::pmt_t v = pmt::PMT_T;
+    pmt::pmt_t i = pmt::pmt_string_to_symbol(str.str());
+    add_item_tag(0, nitems_written(0) + offset, k, v, i);
+}
+
+void rfidbts_mux_slice_dice::set_state() {
+    switch(d_current_cmd.cmd) {
+        case MUX_DELETE:
+            d_state = DELETE;
+            break;
+        case MUX_COPY:
+            d_state = COPY;
+            break;
+        case MUX_FLUSH:
+            d_state = DELETE_FLUSH;
+            break;
+        case MUX_TAG:
+            d_state = TAG_COPY; 
+            break;
+        default:
+            assert(0);
+    };
+}
+
+void rfidbts_mux_slice_dice::pop_next_cmd() {
+    assert(d_current_cmd.len >= 0);
+
+    if(d_current_cmd.len == 0) {
         d_state = WAIT;
     }
+}
+
+
+/////////////////////////////////////////////////////
+
+rfidbts_packetizer_sptr rfidbts_make_packetizer() {
+}
+
+rfidbts_packetizer::rfidbts_packetizer() :
+    gr_sync_block("packetizer",
+             gr_make_io_signature(1, 1, sizeof(char)),
+             gr_make_io_signature(0, 0, 0))
+{
+}
+
+int rfidbts_packetizer::work(int noutput_items,
+                             gr_vector_const_void_star &input_items,
+                             gr_vector_void_star &output_items) {
+    int t;
+    int ii = 0;
+    char *in;
+    rfidbts_controller::bit_decode_task task;
+
+    in = (char*) input_items[0];
+
+    while(ii < noutput_items) {
+        switch(d_state) {
+            case IDLE:
+                //call mac layer
+                rfid_mac->bit_decode(task);
+                assert(task.valid);
+                d_bit_offset = task.bit_offset;
+                d_packet_len = task.output_bit_len;
+
+                d_state = OFFSET;
+                break;
+            case OFFSET:
+                t = min(noutput_items, d_bit_offset);
+                ii += t;
+                d_bit_offset = d_bit_offset - t;
+
+                if(d_bit_offset == 0) {
+                    d_state = GET_FRAME;
+                }
+                break;
+            case GET_FRAME:
+                //copy
+                t = min(noutput_items, d_packet_len);
+                copy(in + ii, in + ii + t, d_packet.end() - d_packet_len);
+                //update pointers
+                ii += t;
+                d_packet_len = d_packet_len - t;
+                //copy
+                if(d_packet_len == 0) {
+                    d_state = IDLE;
+                    rfid_mac->decoded_message(d_packet);
+                    //call mac layer
+                }
+                break;
+            default:
+                assert(0);
+        };
+    }
+    return ii;
 }
 

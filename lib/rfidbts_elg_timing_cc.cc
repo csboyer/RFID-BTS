@@ -27,16 +27,20 @@
 
 #include <gr_io_signature.h>
 #include <gr_prefs.h>
+#include <gr_tag_info.h>
 #include <rfidbts_elg_timing_cc.h>
+#include <rfidbts_controller.h>
 #include <gri_mmse_fir_interpolator_cc.h>
 #include <stdexcept>
 #include <cstdio>
 #include <cfloat>
 
-//#define GARDNER_DEBUG
+#define GARDNER_DEBUG
 
 
 #include <iostream>
+
+extern rfidbts_controller_sptr rfid_mac;
 
 using namespace std;
 
@@ -86,8 +90,13 @@ rfidbts_elg_timing_cc::rfidbts_elg_timing_cc(float phase_offset,
     d_sample_catch_up(0),
     d_dco_gain(dco_gain),
     d_order_1_gain(order_1_gain),
-    d_order_2_gain(order_2_gain)
+    d_order_2_gain(order_2_gain),
+    d_delay(8)
 {
+  tag_propagation_policy_t p;
+
+  p = TPP_DONT;
+  set_tag_propagation_policy(p);
 
   set_spb(d_spb);
   set_relative_rate(1 / d_spb);
@@ -183,7 +192,6 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
 {
   const gr_complex *in = (const gr_complex *) input_items[0];
   gr_complex *out = (gr_complex *) output_items[0];
-
   int  ii = 0;	 			// input index
   int  oo = 0;				// output index
   int  ni = ninput_items[0] - d_interp->ntaps() - 1;  // don't use more input than this
@@ -208,13 +216,7 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
   while( ii < ni && oo < noutput_items) {
       switch(d_state) {
           case INIT:
-              if(d_in_received < d_init) {
-                  d_in_received++;
-                  ii++;
-              }
-              else {
-                  d_state = SYMBOL_TRACK;
-              }
+              ii += search_tag(ii, ninput_items[0]);
               break;
           case SYMBOL_TRACK:
               if(d_out_sent < d_out_frame_size) {
@@ -239,7 +241,7 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
                   d_out_sent++;
               }
               else {
-                  d_state = FLUSH_BUFFER;
+                  d_state = INIT;
               }
               break;
           case FLUSH_BUFFER:
@@ -260,4 +262,25 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
   assert(ii <= ninput_items[0] );
   consume_each(ii);
   return oo;
+}
+
+int rfidbts_elg_timing_cc::search_tag(int offset, int input_items) {
+    vector<pmt::pmt_t> tags;
+
+    get_tags_in_range(tags, 0,
+                      nitems_read(0) + offset, nitems_read(0) + input_items,
+                      pmt::pmt_string_to_symbol("rfidbts_burst"));
+    if(tags.begin() != tags.end()) {
+        sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
+        assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
+        d_state = SYMBOL_TRACK;
+        d_out_sent = 0;
+
+        assert((gr_tags::get_nitems(tags[0]) - d_delay) - (nitems_read(0) + offset) >= 0);
+        return (gr_tags::get_nitems(tags[0]) - d_delay) - (nitems_read(0) + offset);
+    }
+    else {
+        assert((input_items - d_delay) - offset >= 0);
+        return (input_items - d_delay) - offset;
+    }
 }

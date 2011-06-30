@@ -178,7 +178,7 @@ class preamble_search(gr.hier_block2):
             self.correlators.append(gr.fir_filter_ccf(1,flipud(preamble_taps)))
     def create_peak_d(self,rate_var):
         self.peak_d = []
-        thr = 11
+        thr = 10
         look = 20
         a = 0.01
         for ii in range(2 * rate_var + 1):
@@ -230,7 +230,7 @@ class proto_transceiver(gr.hier_block2):
 ####################################
 #downlink blocks
         frame_size_rn16 = int((32 + 32 + 12) * 8 + int(75*0.4*1.024))
-        self.TX_blocker = rfidbts.receive_gate(threshold = 0.3,     #bit above the noise floor
+        self.TX_blocker = rfidbts.receive_gate(threshold = 0.2,     #bit above the noise floor
                                                pw_preamble = 26,     #26 PW in downlink frame
                                                off_max = 15,         #should not be in the off state for more than 13 us
                                                mute_buffer = int(1.00*(75*0.9 - 8)),     #wait for another wait for 75*0.9 -2us

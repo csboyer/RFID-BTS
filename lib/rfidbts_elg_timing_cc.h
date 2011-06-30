@@ -100,6 +100,7 @@ protected:
   int d_out_sent;
   int d_init;
   int d_sample_catch_up;
+  int d_delay;
 
   int d_early_sample;
   float d_early_po;
@@ -121,6 +122,7 @@ protected:
   void update_loopfilter(float timing_error);
   int update_dco();
   float gen_output_error(const gr_complex *in);
+  int search_tag(int offset, int input_items);
 
   friend rfidbts_elg_timing_cc_sptr rfidbts_make_elg_timing_cc (float phase_offset, 
                                                                 float samples_per_symbol, 

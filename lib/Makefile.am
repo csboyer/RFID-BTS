@@ -35,6 +35,7 @@ modinclude_HEADERS = \
     rfidbts_gardner_timing_cc.h \
     rfidbts_elg_timing_cc.h \
     rfidbts_receive_gate.h \
+    rfidbts_controller.h \
     rfidbts_pick.h 
     
         
@@ -47,6 +48,7 @@ libgnuradio_rfidbts_la_SOURCES = \
     rfidbts_gardner_timing_cc.cc \
     rfidbts_elg_timing_cc.cc \
     rfidbts_receive_gate.cc \
+    rfidbts_controller.cc \
     rfidbts_pick.cc 
 
 libgnuradio_rfidbts_la_LIBADD = \

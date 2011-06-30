@@ -59,3 +59,12 @@ class rfidbts_mux_slice_dice : public gr_block
  public:
   void set_msg_queue(gr_msg_queue_sptr q);
 };
+
+GR_SWIG_BLOCK_MAGIC(rfidbts,packetizer);
+rfidbts_packetizer_sptr rfidbts_make_packetizer ();
+
+class rfidbts_packetizer : public gr_sync_block
+{
+ protected:
+  rfidbits_packetizer();
+};
