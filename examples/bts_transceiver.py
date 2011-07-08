@@ -7,7 +7,8 @@ import gnuradio.gr.gr_threading as _threading
 
 from bitarray import bitarray
 import rfidbts
-
+#############################################
+# Msg printout
 class queue_watcher_thread(_threading.Thread):
     def __init__(self, q, callback):
         _threading.Thread.__init__(self)
@@ -24,7 +25,8 @@ class queue_watcher_thread(_threading.Thread):
             for c in s:
                 printout = printout + " 0x" + c.encode("hex")
             print printout
-
+#############################################
+# Diff. decoder
 class bit_slicer(gr.hier_block2):
     def __init__(self):
         gr.hier_block2.__init__(self,
@@ -90,7 +92,8 @@ class binary_diff_decoder(gr.hier_block2):
         self.connect(s_0_s, (slicer, 0))
         self.connect(s_1_s, (slicer, 1))
         self.connect(slicer, self)
-
+######################################
+#Maps preamble synch'ed sample stream to a stream of miller half symbols 
 class symbol_mapper(gr.hier_block2):
     def __init__(self):
         gr.hier_block2.__init__(self,
@@ -105,16 +108,15 @@ class symbol_mapper(gr.hier_block2):
                                                      samples_per_symbol = 8,
                                                      in_frame_size = 500,
                                                      out_frame_size = 7 + 12 + 32,
-                                                     dco_gain = 0.02 * 6,
-                                                     order_1_gain = 0.02,
-                                                     order_2_gain = 0.02)
-        self.timing_recovery.set_init(8 * 2)
+                                                     dco_gain = 0.04,
+                                                     order_1_gain = 0.1,
+                                                     order_2_gain = 0.01)
 
         timing_s = gr.file_sink(gr.sizeof_gr_complex, "timing/symbols.dat")
         self.connect(self.timing_recovery, timing_s)
         self.connect(self, self.mf, self.timing_recovery, self)
-
-
+###########################################
+#Searches for the preamble from a sample stream
 class preamble_search(gr.hier_block2):
     def __init__(self, frame_size_rn16):
         gr.hier_block2.__init__(self,
@@ -206,8 +208,8 @@ class preamble_search(gr.hier_block2):
             self.connect(pd, strobe)
             self.connect((pd,1), ps)
             self.connect(cm, ms)
-
-
+###################################
+#Top level block
 class proto_transceiver(gr.hier_block2):
     def __init__(self):
         gr.hier_block2.__init__(self,
@@ -219,22 +221,23 @@ class proto_transceiver(gr.hier_block2):
                                     filename = "agc.dat")
 #########################
 #uplink blocks
-        self.tx_encoder = rfidbts.downlink_src(
-                samp_per_delimiter = 8, 
-                samp_per_cw = 64 * 16 * 120,
-                samp_per_wait = 64 * 16 * 4,
-                samp_per_tari = 16,
-                samp_per_pw = 8,
-                samp_per_trcal = 53,
-                samp_per_data1 = 32)
+
+        q_encoder = gr.msg_queue(100)
+        self.tx_encoder = rfidbts.pie_encoder(samples_per_delimiter = 8, 
+                                              samples_per_tari = 16,
+                                              samples_per_pw = 8,
+                                              samples_per_trcal = 53,
+                                              samples_per_data1 = 32)
+        self.tx_encoder.set_encoder_queue(q_encoder)
+        rfidbts.cvar.rfid_mac.set_encoder_queue(q_encoder)
 ####################################
 #downlink blocks
+        q_blocker = gr.msg_queue(100)
         frame_size_rn16 = int((32 + 32 + 12) * 8 + int(75*0.4*1.024))
-        self.TX_blocker = rfidbts.receive_gate(threshold = 0.2,     #bit above the noise floor
-                                               pw_preamble = 26,     #26 PW in downlink frame
-                                               off_max = 15,         #should not be in the off state for more than 13 us
-                                               mute_buffer = int(1.00*(75*0.9 - 8)),     #wait for another wait for 75*0.9 -2us
-                                               tag_response = frame_size_rn16 * 2 + int(1.0*(75*0.9 - 8)))
+        self.TX_blocker = rfidbts.receive_gate(threshold = 0.15,     #bit above the noise floor
+                                               off_max = 15)         #should not be in the off state for more than 13 us
+        self.TX_blocker.set_gate_queue(q_blocker)
+        rfidbts.cvar.rfid_mac.set_gate_queue(q_blocker)
         self.blocker = gr.dc_blocker_cc(D = 5, 
                                         long_form = True)
         self.agc = gr.agc_cc(rate = 5e0, 
@@ -243,14 +246,9 @@ class proto_transceiver(gr.hier_block2):
                              max_gain = 1000.0)
         self.search = preamble_search(frame_size_rn16)
         self.half_symbols = symbol_mapper()
-#skip preamble 12 + 7 symbols
-        self.preamble_cut = gr.skiphead(gr.sizeof_gr_complex, 12 + 7)
         self.decoder = binary_diff_decoder()
+        self.framer = rfidbts.packetizer()
 #frame the rn16 and send to message queue
-        self.framer = gr.stream_to_vector(gr.sizeof_char, 16)
-        self.q = gr.msg_queue(100)
-        self.output_queue = gr.message_sink(16 * gr.sizeof_char, self.q, False)
-        self.msg_printer = queue_watcher_thread(self.q, None)
 #####################################
 #connect uplink
         self.connect(self.tx_encoder, self)
@@ -262,15 +260,11 @@ class proto_transceiver(gr.hier_block2):
                      self.agc,
                      self.search,
                      self.half_symbols,
-                     self.preamble_cut,
                      self.decoder,
-                     self.framer, 
-                     self.output_queue)
+                     self.framer)
         self.connect(self.agc, self.agc_out)
 ########################################
     def snd_query(self):
-#               *    Cmd    * DR *  M  * TRext *  Sel  * Session * Target *    Q    *
-        frame = (1, 0, 0, 0,  0,  1, 0,    1,     0, 0,    0, 0,   0,       0, 0, 0,0)
-        self.tx_encoder.send_pkt_preamble(frame)
+        rfidbts.cvar.rfid_mac.issue_downlink_command()
 
 

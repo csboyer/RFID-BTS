@@ -25,44 +25,36 @@
 #define	INCLUDED_RFIDBTS_RECEIVE_GATE_H
 
 #include <gr_block.h>
+#include <gr_message.h>
+#include <gr_msg_queue.h>
+#include <rfidbts_controller.h>
 
 class rfidbts_receive_gate;
 typedef boost::shared_ptr<rfidbts_receive_gate> rfidbts_receive_gate_sptr;
 rfidbts_receive_gate_sptr rfidbts_make_receive_gate (float threshold,
-                                                     int pw_preamble,
-                                                     int off_max,
-                                                     int mute_buffer,
-                                                     int tag_reponse);
+                                                     int off_max);
 
 class rfidbts_receive_gate : public gr_block
 {
 private:
   float d_threshold;
-  int d_pw_preamble;
   int d_off_max;
-  int d_mute_buffer;
-  int d_tag_response;
 
-  int d_bootup_count;
-  int d_bootup_time;
-  int d_off_count;
-  int d_pw_count;
-  int d_unmute_count;
-  enum State { ST_BOOTUP, ST_TXOFF, ST_TXON_MUTE, ST_TXOFF_MUTE, ST_UNMUTE };
+  int d_counter;
+  enum State { ST_BOOTUP, ST_TXOFF, ST_TXON_MUTE, ST_TXOFF_MUTE, ST_UNMUTE, ST_COMMAND, ST_WAIT };
   State d_state;
+
+  gr_msg_queue_sptr d_cmd_queue;
   
   friend rfidbts_receive_gate_sptr rfidbts_make_receive_gate(float threshold,
-                                                             int pw_preamble,
-                                                             int off_max,
-                                                             int mute_buffer,
-                                                             int tag_reponse);
+                                                             int off_max);
+  void add_tag(int offset);
+  void process_cmd_queue(rfidbts_controller::rx_burst_task *task);
+  void decode_task(rfidbts_controller::rx_burst_task &task, int oo);
 
 protected:
   rfidbts_receive_gate (float threshold,
-                        int pw_preamble,
-                        int off_max,
-                        int mute_buffer,
-                        int tag_reponse);
+                        int off_max);
 
 public:
 
@@ -71,6 +63,8 @@ public:
 		    gr_vector_int &ninput_items,
 		    gr_vector_const_void_star &input_items,
 		    gr_vector_void_star &output_items);
+  gr_msg_queue_sptr get_cmd_queue();
+  void set_gate_queue(gr_msg_queue_sptr q);
 };
 
 #endif

@@ -79,19 +79,14 @@ rfidbts_elg_timing_cc::rfidbts_elg_timing_cc(float phase_offset,
     d_spb_init(samples_per_symbol),
     d_spb(samples_per_symbol),
     d_integrator_1(0.0),
-    d_spb_relative_limit(0.02),
+    d_spb_relative_limit(0.05),
     d_interp(new gri_mmse_fir_interpolator_cc()),
     d_verbose(gr_prefs::singleton()->get_bool("elg_timing_cc", "verbose", false)),
     d_s_late(0), d_s_0T(0), d_s_early(0),
-    d_in_frame_size(in_frame_size),
-    d_out_frame_size(out_frame_size),
-    d_in_received(0),
-    d_out_sent(0),
-    d_sample_catch_up(0),
     d_dco_gain(dco_gain),
     d_order_1_gain(order_1_gain),
     d_order_2_gain(order_2_gain),
-    d_delay(8)
+    d_state(INIT)
 {
   tag_propagation_policy_t p;
 
@@ -100,13 +95,13 @@ rfidbts_elg_timing_cc::rfidbts_elg_timing_cc(float phase_offset,
 
   set_spb(d_spb);
   set_relative_rate(1 / d_spb);
-  set_history(6);
+  set_history(5);
 
-  d_early_po = d_po - 0.15;
+  d_early_po = d_po - 0.5;
   d_early_sample = (int) floor(d_early_po);
   d_early_po = d_early_po - d_early_sample;
 
-  d_late_po = d_po + 0.15;
+  d_late_po = d_po + 0.5;
   d_late_sample = (int) floor(d_late_po);
   d_late_po = d_late_po - d_late_sample;
 
@@ -158,11 +153,11 @@ rfidbts_elg_timing_cc::update_dco() {
     sample_inc = (int) floor(d_po);
     d_po = d_po - sample_inc;
     //calc early point 1/4 sample in past
-    d_early_po = d_po - 0.15;
+    d_early_po = d_po - 0.5;
     d_early_sample = (int) floor(d_early_po);
     d_early_po = d_early_po - d_early_sample;
     //calc late point 1/4 sample in future
-    d_late_po = d_po + 0.15;
+    d_late_po = d_po + 0.5;
     d_late_sample = (int) floor(d_late_po);
     d_late_po = d_late_po - d_late_sample;
 
@@ -204,13 +199,6 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
   assert(ni >= 0);
   //
 
-  if(d_sample_catch_up > 0) {
-      int catch_up = min(d_sample_catch_up, ninput_items[0]);
-      d_sample_catch_up = d_sample_catch_up - catch_up;
-      consume_each(catch_up);
-      return 0;
-  }
-
   //offset by one sample so it is possible to go back in time
   in++;
   while( ii < ni && oo < noutput_items) {
@@ -219,17 +207,19 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
               ii += search_tag(ii, ninput_items[0]);
               break;
           case SYMBOL_TRACK:
-              if(d_out_sent < d_out_frame_size) {
+              if(d_symbol_counter > 0) {
                   //calc error and update loop filter
                   update_loopfilter(gen_output_error(in + ii));
                   //whole samples to advance by
                   samples_consumed = update_dco();
                   if(samples_consumed + ii > ni) {
-                      d_sample_catch_up = samples_consumed + ii - ni;
-                      samples_consumed = ii - ni;
+                      d_delay_counter = samples_consumed + ii - ni;
+                      ii = ni;
+                      d_state = SAMPLE_DELAY;
                   }
-                  ii += samples_consumed;
-                  d_in_received += samples_consumed;
+                  else {
+                      ii += samples_consumed;
+                  }
                   // Loop filter output
                   if(output_items.size() >= 2) {
                       float *foptr = (float*) output_items[1];
@@ -238,20 +228,20 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
                   //write output
                   out[oo] = d_s_0T;
                   oo++;
-                  d_out_sent++;
+                  d_symbol_counter--;
               }
               else {
                   d_state = INIT;
               }
               break;
-          case FLUSH_BUFFER:
-              if(d_in_received < d_in_frame_size) {
-                  d_in_received++;
-                  ii++;
+          case SAMPLE_DELAY:
+              if(d_delay_counter > 0) {
+                  samples_consumed = min(ninput_items[0] - ii, d_delay_counter);
+                  ii += samples_consumed;
+                  d_delay_counter = d_delay_counter - samples_consumed;
               }
               else {
-                  d_in_received = 0;
-                  d_state = INIT;
+                  d_state = SYMBOL_TRACK;
               }
               break;
           default:
@@ -266,21 +256,36 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
 
 int rfidbts_elg_timing_cc::search_tag(int offset, int input_items) {
     vector<pmt::pmt_t> tags;
+    rfidbts_controller::symbol_sync_task task;
+    int count;
 
     get_tags_in_range(tags, 0,
                       nitems_read(0) + offset, nitems_read(0) + input_items,
                       pmt::pmt_string_to_symbol("rfidbts_burst"));
+    //see if the tag marking the start of the stream exists, if so start there.
     if(tags.begin() != tags.end()) {
         sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
         assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
-        d_state = SYMBOL_TRACK;
-        d_out_sent = 0;
-
-        assert((gr_tags::get_nitems(tags[0]) - d_delay) - (nitems_read(0) + offset) >= 0);
-        return (gr_tags::get_nitems(tags[0]) - d_delay) - (nitems_read(0) + offset);
+        rfid_mac->symbol_synch(task);
+        d_symbol_counter = task.output_symbol_len;
+        //offset of the tag
+        count = gr_tags::get_nitems(tags[0]) - nitems_read(0);
+        //offset from the match filter
+        count += task.match_filter_offset;
+        //check for over flow; either 
+        if(count > input_items) {
+            d_delay_counter = input_items - count;
+            count = input_items - offset;
+            d_state = SAMPLE_DELAY;
+        }
+        else {
+            d_state = SYMBOL_TRACK;
+            count = count - offset;
+        }
     }
     else {
-        assert((input_items - d_delay) - offset >= 0);
-        return (input_items - d_delay) - offset;
+        count = input_items - offset;
     }
+
+    return count;
 }

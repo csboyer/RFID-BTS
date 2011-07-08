@@ -62,11 +62,6 @@ class rfidbts_elg_timing_cc : public gr_block
       d_spb_mid = 0.5*(d_min_spb+d_max_spb);
   }
 
-  void set_init(int init) {
-      assert(init >= 0);
-      d_init = init;
-  }
-
 
 protected:
   rfidbts_elg_timing_cc (float phase_offset, 
@@ -79,7 +74,7 @@ protected:
 
  private:
 
-  enum State {INIT, SYMBOL_TRACK, FLUSH_BUFFER};
+  enum State {INIT, SYMBOL_TRACK, SAMPLE_DELAY};
   State d_state;
 
   int debug_count;
@@ -94,13 +89,8 @@ protected:
   float d_integrator_1;
   float d_loopfilter;
 
-  int d_in_frame_size;
-  int d_out_frame_size;
-  int d_in_received;
-  int d_out_sent;
-  int d_init;
-  int d_sample_catch_up;
-  int d_delay;
+  int d_symbol_counter;
+  int d_delay_counter;
 
   int d_early_sample;
   float d_early_po;

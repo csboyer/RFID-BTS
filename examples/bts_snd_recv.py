@@ -6,6 +6,7 @@ from gnuradio import uhd
 from gnuradio import eng_notation
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
+import time
 
 import bts_transceiver
 
@@ -19,10 +20,13 @@ class app_top_block(gr.top_block):
         self.options = self.run_parser()
         self.transceiver = bts_transceiver.proto_transceiver()
         if rcvr_hack:
-            self.src = gr.file_source(
+            self.src = gr.throttle(itemsize = gr.sizeof_gr_complex,
+                                   samples_per_sec = self.options.rx_samp_rate)
+            self.f_src = gr.file_source(
                     itemsize = gr.sizeof_gr_complex,
                     filename = self.options.test_src,
                     repeat = False)
+            self.connect(self.f_src, self.src)
         else:
             self.bb_sink = gr.file_sink(
                     itemsize = gr.sizeof_gr_complex,
@@ -52,13 +56,15 @@ class app_top_block(gr.top_block):
             self.connect(
                     self.transceiver,
                     self.fsnk)
-
+        
         self.connect(
                 self.src, 
                 self.transceiver)
         self.connect(
                 self.transceiver, 
                 self.snk)
+#sleep for a bit, let the USRP clocks stablize and such
+        time.sleep(1)
 
 #setup parser
     def run_parser(self):
@@ -207,10 +213,9 @@ def main():
     try:
         tb.start()
         tb.transceiver.snd_query()
-        control_loop(tb)
-        tb.stop()
         tb.wait()
     except KeyboardInterrupt:
+        tb.stop()
         pass
 
 if __name__ == '__main__':

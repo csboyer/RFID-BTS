@@ -415,6 +415,7 @@ void rfidbts_mux_slice_dice::pop_next_cmd() {
 /////////////////////////////////////////////////////
 
 rfidbts_packetizer_sptr rfidbts_make_packetizer() {
+  return gnuradio::get_initial_sptr(new rfidbts_packetizer());
 }
 
 rfidbts_packetizer::rfidbts_packetizer() :
@@ -442,11 +443,11 @@ int rfidbts_packetizer::work(int noutput_items,
                 assert(task.valid);
                 d_bit_offset = task.bit_offset;
                 d_packet_len = task.output_bit_len;
-
+                d_packet.resize(task.output_bit_len);
                 d_state = OFFSET;
                 break;
             case OFFSET:
-                t = min(noutput_items, d_bit_offset);
+                t = min(noutput_items - ii, d_bit_offset);
                 ii += t;
                 d_bit_offset = d_bit_offset - t;
 
@@ -456,7 +457,7 @@ int rfidbts_packetizer::work(int noutput_items,
                 break;
             case GET_FRAME:
                 //copy
-                t = min(noutput_items, d_packet_len);
+                t = min(noutput_items - ii, d_packet_len);
                 copy(in + ii, in + ii + t, d_packet.end() - d_packet_len);
                 //update pointers
                 ii += t;

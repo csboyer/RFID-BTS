@@ -36,7 +36,6 @@ class rfidbts_elg_timing_cc : public gr_block
  public:
     void set_phase_offset(float p);
     void set_spb (float spb);
-    void set_init(int init);
     void set_verbose (bool verbose);
 };
 

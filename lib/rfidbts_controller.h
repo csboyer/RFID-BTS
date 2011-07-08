@@ -36,29 +36,42 @@ rfidbts_controller_sptr rfidbts_make_controller();
 class rfidbts_controller {
 private:
     enum State {READY_DOWNLINK, SET_TX_BURST, PREAMBLE_DET, SYMBOL_DET, BIT_DECODE, WAIT_FOR_DECODE};
-    enum State_Tx {IDLE, SETUP_QUERY, SETUP_WAIT, SETUP_QUERY_OR_ACK};
     State d_state;
-    State_Tx d_state_tx;
 
     gr_msg_queue_sptr d_encoder_queue;
+    gr_msg_queue_sptr d_gate_queue;
 
     friend rfidbts_controller_sptr rfidbts_make_controller();
 
     void queue_msg(gr_msg_queue_sptr q, size_t msg_size, void *buf);
-    void setup_query_ack_rep_burst();
+    //encoder
+    void setup_on_wait(int len);
+    void setup_on();
+    void setup_frame_synch();
+    void setup_preamble();
+    void setup_query();
+    void setup_ack_rep();
     void setup_end_query_rep();
-    void setup_end_ack();
+    void setup_end_ack(const std::vector<unsigned char> &RN16);
+    void setup_ack(const std::vector<char> &RN16);
     void setup_end();
+    //gate
+    void setup_gate(int len);
+    void setup_ungate(int len);
+    void setup_gate_done();
+    //burst commands
+    void setup_query_ack_rep_burst();
+    void setup_ack_burst(const std::vector<char> &RN16);
 
 protected:
     rfidbts_controller();
 public:
-    enum tx_burst_cmd {TURN_ON, PREAMBLE, FRAME_SYNCH, DATA_BITS, WAIT, END};
+    enum tx_burst_cmd {TURN_ON_TIMED, TURN_ON, PREAMBLE, FRAME_SYNCH, DATA_BITS, TURN_OFF};
     struct tx_burst_task {
         bool valid;
         tx_burst_cmd cmd;
-        int wait_usec;
-        std::vector<char> *data;
+        int len;
+        std::vector<unsigned char> *data;
     };
     enum rx_burst_cmd {RXB_GATE, RXB_UNGATE, RXB_DONE};
     struct rx_burst_task {
@@ -73,15 +86,19 @@ public:
     struct symbol_sync_task {
         bool valid;
         int output_symbol_len;
+        int match_filter_offset;
     };
     struct bit_decode_task {
         bool valid;
         int bit_offset;
         int output_bit_len;
     };
-
+//queue presets
     void set_encoder_queue(gr_msg_queue_sptr q);
+    void set_gate_queue(gr_msg_queue_sptr q);
+//python interface
     void issue_downlink_command();
+//call backs by the different blocks - should run sequentulally
     void preamble_search(bool success, preamble_search_task &task);
     void symbol_synch(symbol_sync_task &task);
     void bit_decode(bit_decode_task &task);

@@ -26,6 +26,7 @@
 #include <gr_block.h>
 #include <gr_message.h>
 #include <gr_msg_queue.h>
+#include <rfidbts_controller.h>
 
 
 class rfidbts_pie_encoder;
@@ -36,9 +37,7 @@ rfidbts_pie_encoder_sptr rfidbts_make_pie_encoder (
         int samples_per_tari,
         int samples_per_pw,
         int samples_per_trcal,
-        int samples_per_data1,
-        int samples_per_cw,
-        int samples_per_wait);
+        int samples_per_data1);
 
 /*!
  * \brief Turn received messages into a stream
@@ -47,19 +46,16 @@ rfidbts_pie_encoder_sptr rfidbts_make_pie_encoder (
 class rfidbts_pie_encoder : public gr_block
 {
  private:
-  enum State {idle, send_cw, send_frame, wait_for_frame};
+  enum State {OFF_IDLE, ON_IDLE, ON_TIMED, SEND_SAMPLES, GET_TASK};
 
-  State d_current_state;
-  int d_samples_per_cw;
-  int d_samples_per_wait;
-  int d_num_sent_frame;
-  int d_num_sent_cw;
-  int d_num_sent_wait;
+  State d_state;
+
+  int d_counter;
 
   const gr_complex d_sample_0;
   const gr_complex d_sample_1;
 
-  gr_msg_queue d_frameq;
+  gr_msg_queue_sptr d_cmd_queue;
 
   std::vector<gr_complex> d_data0;
   std::vector<gr_complex> d_data1;
@@ -68,22 +64,18 @@ class rfidbts_pie_encoder : public gr_block
 
   std::vector<gr_complex> d_outgoing_frame;
 
-  bool make_frame(
-          const std::vector<gr_complex> &header,
-          const std::vector<unsigned char> &data);
   void bit_to_pie(
-          const std::vector<unsigned char> &b,
+          const std::vector<unsigned char> *b,
           std::vector<gr_complex> &p);
-  void ready_msgframe(gr_message_sptr frame_msg);
+  void get_task(rfidbts_controller::tx_burst_task *task);
+  void decode_task(rfidbts_controller::tx_burst_task *task);
 
   friend rfidbts_pie_encoder_sptr rfidbts_make_pie_encoder (
         int samples_per_delimiter,
         int samples_per_tari,
         int samples_per_pw,
         int samples_per_trcal,
-        int samples_per_data1,
-        int samples_per_cw,
-        int samples_per_wait);
+        int samples_per_data1);
 
  protected:
   rfidbts_pie_encoder (
@@ -91,16 +83,12 @@ class rfidbts_pie_encoder : public gr_block
         int samples_per_tari,
         int samples_per_pw,
         int samples_per_trcal,
-        int samples_per_data1,
-        int samples_per_cw,
-        int samples_per_wait);
+        int samples_per_data1);
 
  public:
   ~rfidbts_pie_encoder();
   
-  bool snd_frame_preamble(const std::vector<unsigned char> &data);
-  bool snd_frame_framesync(const std::vector<unsigned char> &data);
-
+  void set_encoder_queue(gr_msg_queue_sptr q);
   int general_work (int noutput_items,
       gr_vector_int &ninput_items,
 	  gr_vector_const_void_star &input_items,

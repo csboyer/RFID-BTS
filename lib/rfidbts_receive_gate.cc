@@ -25,7 +25,7 @@
 #include "config.h"
 #endif
 
-#include "rfidbts_receive_gate.h"
+#include <rfidbts_receive_gate.h>
 #include <cmath>
 #include <gr_io_signature.h>
 #include <stdio.h>
@@ -36,35 +36,31 @@ using namespace std;
 // public constructor that takes existing message queue
 rfidbts_receive_gate_sptr
 rfidbts_make_receive_gate (float threshold,
-                           int pw_preamble,
-                           int off_max,
-                           int mute_buffer,
-                           int tag_response)
+                           int off_max)
 {
   return rfidbts_receive_gate_sptr(new rfidbts_receive_gate(threshold,
-                                                            pw_preamble,
-                                                            off_max,
-                                                            mute_buffer,
-                                                            tag_response));
+                                                            off_max));
 }
 
 rfidbts_receive_gate::rfidbts_receive_gate(float threshold,
-                                           int pw_preamble,
-                                           int off_max,
-                                           int mute_buffer,
-                                           int tag_response)
+                                           int off_max)
 	: gr_block("receiver_gate",
 	         gr_make_io_signature(1, 1, sizeof(gr_complex)),
 	         gr_make_io_signature(1, 1, sizeof(gr_complex))),
     d_threshold(threshold),
-    d_pw_preamble(pw_preamble),
     d_off_max(off_max),
-    d_mute_buffer(mute_buffer),
-    d_tag_response(tag_response),
-    d_bootup_count(0),
-    d_bootup_time(300),
+    d_counter(10000),
     d_state(ST_BOOTUP)
 {
+  tag_propagation_policy_t p;
+
+  p = TPP_DONT;
+  set_tag_propagation_policy(p);
+}
+
+
+void rfidbts_receive_gate::set_gate_queue(gr_msg_queue_sptr q) {
+    d_cmd_queue = q;
 }
 
 int rfidbts_receive_gate::general_work(
@@ -73,74 +69,85 @@ int rfidbts_receive_gate::general_work(
 				     gr_vector_const_void_star &input_items,
 				     gr_vector_void_star &output_items)
 {
-    int ii;
+    int ii = 0;
     int oo = 0;
     int nii = (int) ninput_items[0];
+    int m;
     float mag_sqrd;
     const gr_complex *in = (const gr_complex*) input_items[0];
     gr_complex *out = (gr_complex *) output_items[0];
+    rfidbts_controller::rx_burst_task task;
 
-    for(ii = 0; ii < nii; ii++) {
+    while(ii < nii && oo < noutput_items) {
         switch(d_state) {
             case ST_BOOTUP:
-                if(d_bootup_count > d_bootup_time) {
+                if(d_counter == 0) {
                     d_state = ST_TXOFF;
                 }
                 else {
-                    d_bootup_count++;
+                    d_counter = d_counter - 1;
+                    ii++;
                 }
                 break;
             case ST_TXOFF:
-                if( abs(in[ii]) > (d_threshold ) ) {
+                if( abs(in[ii]) > d_threshold ) {
                     d_state = ST_TXON_MUTE;
-                    d_pw_count = 0;
+                }
+                else {
+                   ii++;
                 }
                 break;
             case ST_TXON_MUTE:
-                if( abs(in[ii]) < (d_threshold ) ) {
-                    d_off_count = 0;
-                    d_pw_count++;
+                if( abs(in[ii]) < d_threshold ) {
+                    d_counter = 0;
                     d_state = ST_TXOFF_MUTE;
+                }
+                else {
+                    ii++;
                 }
                 break;
             case ST_TXOFF_MUTE:
-                if(d_off_count > d_off_max) {
+                if(d_counter > d_off_max) {
                     d_state = ST_TXOFF;
                 }
-                else if( abs(in[ii]) > d_threshold  && d_pw_count >= d_pw_preamble) {
-                    d_unmute_count = 0;
-                    d_state = ST_UNMUTE;
-                }
                 else if( abs(in[ii]) > d_threshold  ) {
-                    d_state = ST_TXON_MUTE;
+                    d_state = ST_COMMAND;
                 }
                 else {
-                    d_off_count++;
+                    d_counter++;
+                    ii++;
+                }
+                break;
+            case ST_COMMAND:
+                if(!d_cmd_queue->empty_p()) {
+                    //copy out command
+                    process_cmd_queue(&task);
+                    decode_task(task, oo);
+                }
+                else {
+                    goto work_exit;
+                }
+                break;
+            case ST_WAIT:
+                if(d_counter > 0) {
+                    m = min(d_counter, nii - ii);
+                    d_counter = d_counter - m;
+                    ii += m;
+                }
+                else {
+                    d_state = ST_COMMAND;
                 }
                 break;
             case ST_UNMUTE:
-                if(d_unmute_count < d_mute_buffer) {
-                    d_unmute_count++;
-                }
-                else if(d_unmute_count > d_tag_response) {
-                    d_state = ST_TXON_MUTE;
-                    d_pw_count = 0;
-                }
-                else if(d_unmute_count == d_mute_buffer) {
-                    stringstream str;
-                    str << name() << unique_id();
-                    pmt::pmt_t k = pmt::pmt_string_to_symbol("burst");
-                    pmt::pmt_t v = pmt::PMT_T;
-                    pmt::pmt_t i = pmt::pmt_string_to_symbol(str.str());
-                    add_item_tag(0, nitems_written(0) + ii, k, v, i);
-                    out[oo] = in[ii];
-                    oo++;
-                    d_unmute_count++;
+                if(d_counter > 0) {
+                    m = min(d_counter, min(noutput_items - oo, nii - ii));
+                    memcpy(out + oo, in + ii, m * sizeof(gr_complex));
+                    d_counter = d_counter - m;
+                    oo += m;
+                    ii += m;
                 }
                 else {
-                    out[oo] = in[ii];
-                    oo++;
-                    d_unmute_count++;
+                    d_state = ST_COMMAND;
                 }
                 break;
             default:
@@ -149,7 +156,48 @@ int rfidbts_receive_gate::general_work(
         };
     }
 
-
+work_exit:
     consume_each(ii);
     return oo;
 }
+
+void rfidbts_receive_gate::add_tag(int offset) {
+    stringstream str;
+
+    str << name() << unique_id();
+    pmt::pmt_t k = pmt::pmt_string_to_symbol("rfid_burst");
+    pmt::pmt_t v = pmt::PMT_T;
+    pmt::pmt_t i = pmt::pmt_string_to_symbol(str.str());
+    add_item_tag(0, nitems_written(0) + offset, k, v, i);
+}
+
+void rfidbts_receive_gate::process_cmd_queue(rfidbts_controller::rx_burst_task *task) {
+    gr_message_sptr msg;
+
+    msg = d_cmd_queue->delete_head();
+    memcpy(task, msg->msg(), sizeof(rfidbts_controller::rx_burst_task));
+
+}
+
+void rfidbts_receive_gate::decode_task(rfidbts_controller::rx_burst_task &task, int oo) {
+    switch(task.cmd) {
+        case rfidbts_controller::RXB_GATE:
+            d_counter = task.len;
+            d_state = ST_WAIT;
+            cout << "Gate received RXB_GATE" << endl;
+            break;
+        case rfidbts_controller::RXB_UNGATE:
+            add_tag(oo);
+            d_counter = task.len;
+            d_state = ST_UNMUTE;
+            cout << "Gate received RXB_UNGATE" << endl;
+            break;
+        case rfidbts_controller::RXB_DONE:
+            d_state = ST_TXOFF;
+            cout << "Gate received RXB_DONE" << endl;
+            break;
+        default:
+            assert(0);
+    };
+}
+

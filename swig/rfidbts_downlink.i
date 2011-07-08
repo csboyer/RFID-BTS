@@ -26,16 +26,14 @@
 %}
 
 GR_SWIG_BLOCK_MAGIC(rfidbts,pie_encoder);
-rfidbts_pie_encoder_sptr rfidbts_make_pie_encoder (int samples_per_delimiter, int samples_per_tari, int samples_per_pw, int samples_per_trcal, int samples_per_data1, int samples_per_cw, int samples_per_wait);
+rfidbts_pie_encoder_sptr rfidbts_make_pie_encoder (int samples_per_delimiter, int samples_per_tari, int samples_per_pw, int samples_per_trcal, int samples_per_data1);
 
 class rfidbts_pie_encoder : public gr_sync_block
 {
  protected:
-    rfidbts_pie_encoder (int samples_per_delimiter, int samples_per_tari, int samples_per_pw, int samples_per_trcal, int samples_per_data1, int samples_per_cw, int samples_per_wait);
+    rfidbts_pie_encoder (int samples_per_delimiter, int samples_per_tari, int samples_per_pw, int samples_per_trcal, int samples_per_data1);
  public:
-  bool snd_frame_preamble(const std::vector<unsigned char> &data);
-  bool snd_frame_framesync(const std::vector<unsigned char> &data);
   int general_work (int noutput_items, gr_vector_int &ninput_items, gr_vector_const_void_star &input_items, gr_vector_void_star &output_items);
-
+void set_encoder_queue(gr_msg_queue_sptr q);
 };
 
