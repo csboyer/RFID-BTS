@@ -25,6 +25,7 @@
 
 #include <gr_block.h>
 #include <gr_sync_block.h>
+#include <gr_sync_decimator.h>
 #include <gr_msg_queue.h>
 
 class rfidbts_pick_peak;
@@ -35,6 +36,8 @@ class rfidbts_mux_slice_dice;
 typedef boost::shared_ptr<rfidbts_mux_slice_dice> rfidbts_mux_slice_dice_sptr;
 class rfidbts_packetizer;
 typedef boost::shared_ptr<rfidbts_packetizer> rfidbts_packetizer_sptr;
+class rfidbts_orthogonal_decode;
+typedef boost::shared_ptr<rfidbts_orthogonal_decode> rfidbts_orthogonal_decode_sptr;
 
 
 //////////////////
@@ -151,6 +154,22 @@ public:
              gr_vector_const_void_star &input_items,
              gr_vector_void_star &output_items);
 
+};
+
+////////////////////////////////
+rfidbts_orthogonal_decode_sptr rfidbts_make_orthogonal_decode();
+
+class rfidbts_orthogonal_decode : public gr_sync_decimator
+{
+private:
+    friend rfidbts_orthogonal_decode_sptr rfidbts_make_orthogonal_decode();
+
+protected:
+    rfidbts_orthogonal_decode();
+public:
+    int work(int noutput_items,
+             gr_vector_const_void_star &input_items,
+             gr_vector_void_star &output_items);
 };
 
 #endif

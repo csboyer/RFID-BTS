@@ -68,3 +68,13 @@ class rfidbts_packetizer : public gr_sync_block
  protected:
   rfidbits_packetizer();
 };
+
+GR_SWIG_BLOCK_MAGIC(rfidbts,orthogonal_decode);
+rfidbts_orthogonal_decode_sptr rfidbts_make_orthogonal_decode ();
+
+class rfidbts_orthogonal_decode : public gr_sync_decimator
+{
+ protected:
+  rfidbits_orthogonal_decode();
+};
+

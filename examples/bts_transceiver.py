@@ -149,12 +149,14 @@ class preamble_search(gr.hier_block2):
                                              taps = self.resamplers[0]._taps,
                                              flt_size = 64,
                                              atten = 70)
+            print "RR rate: ", center_rate + (ii + 1) * offset * center_rate
             self.resamplers.insert(0, rr)
             rr = blks2.pfb_arb_resampler_ccf(rate = center_rate -  (ii + 1) * offset * center_rate,
                                              taps = self.resamplers[0]._taps,
                                              flt_size = 64,
                                              atten = 70)
             self.resamplers.append(rr)
+            print "RR rate: ", center_rate - (ii + 1) * offset * center_rate
 
     def create_correlators(self,rate_var):
         h_s_pos = array([1.0,1.0,-1.0,-1.0,1.0,1.0,-1.0,-1.0])
@@ -240,13 +242,14 @@ class proto_transceiver(gr.hier_block2):
         rfidbts.cvar.rfid_mac.set_gate_queue(q_blocker)
         self.blocker = gr.dc_blocker_cc(D = 5, 
                                         long_form = True)
-        self.agc = gr.agc_cc(rate = 5e0, 
+        self.agc = gr.agc_cc(rate = 5e-1, 
                              reference = 0.707, 
                              gain = 100.0,
                              max_gain = 1000.0)
         self.search = preamble_search(frame_size_rn16)
         self.half_symbols = symbol_mapper()
-        self.decoder = binary_diff_decoder()
+#        self.decoder = binary_diff_decoder()
+        self.decoder = rfidbts.orthogonal_decode()
         self.framer = rfidbts.packetizer()
 #frame the rn16 and send to message queue
 #####################################

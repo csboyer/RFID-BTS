@@ -36,6 +36,8 @@ rfidbts_controller_sptr rfidbts_make_controller();
 class rfidbts_controller {
 private:
     enum State {READY_DOWNLINK, SET_TX_BURST, PREAMBLE_DET, SYMBOL_DET, BIT_DECODE, WAIT_FOR_DECODE};
+    enum mac_state {MS_IDLE, MS_RN16, MS_EPC};
+    mac_state d_mac_state;
     State d_state;
 
     gr_msg_queue_sptr d_encoder_queue;

@@ -168,6 +168,7 @@ void rfidbts_receive_gate::add_tag(int offset) {
     pmt::pmt_t k = pmt::pmt_string_to_symbol("rfid_burst");
     pmt::pmt_t v = pmt::PMT_T;
     pmt::pmt_t i = pmt::pmt_string_to_symbol(str.str());
+    cout << "Adding tag to sample" << nitems_written(0) + offset << endl;
     add_item_tag(0, nitems_written(0) + offset, k, v, i);
 }
 

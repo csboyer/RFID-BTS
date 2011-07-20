@@ -11,12 +11,16 @@ rfidbts_controller_sptr rfidbts_make_controller() {
 }
 
 rfidbts_controller::rfidbts_controller() :
-    d_state(READY_DOWNLINK) {
+    d_state(READY_DOWNLINK),
+    d_mac_state (MS_IDLE) {
 }
 
 void rfidbts_controller::issue_downlink_command() {
     assert(d_state == READY_DOWNLINK);
+    assert(d_mac_state == MS_IDLE);
+
     d_state = PREAMBLE_DET;
+    d_mac_state = MS_RN16;
     setup_query_ack_rep_burst();
 }
 
@@ -173,46 +177,89 @@ void rfidbts_controller::setup_query_ack_rep_burst() {
 }
 
 void rfidbts_controller::setup_ack_burst(const vector<char> &RN16) {
+    d_mac_state = MS_EPC;
+
     setup_frame_synch();
     setup_ack(RN16);
     setup_on();
 
     setup_gate(25 + 75 + 25 + 50 + 14 * 25 + 2 * 50);
-    setup_ungate(2000);
+    setup_ungate(2800);
     setup_gate_done();
 }
 /////////// baseband call backs
 void rfidbts_controller::preamble_search(bool success, preamble_search_task &task) {
     assert(d_state == PREAMBLE_DET);
-
-    if(success) {
-        task.valid = true;
-        task.sample_offset = (12 + 6) * 8;
-        task.output_sample_len = (12 + 7 + 32 + 2) * 8;
-        d_state = SYMBOL_DET;
-    }
-    else {
-        task.valid = false;
-        d_state = READY_DOWNLINK;
-    }
+    switch(d_mac_state) {
+        case MS_RN16:
+            if(success) {
+                task.valid = true;
+                task.sample_offset = (12 + 7) * 8;
+                task.output_sample_len = (12 + 6 + 32 + 2) * 8 - 1;
+                d_state = SYMBOL_DET;
+            }
+            else {
+                task.valid = false;
+                d_state = READY_DOWNLINK;
+            }
+            break;
+        case MS_EPC:
+            if(success) {
+                task.valid = true;
+                task.sample_offset = (12 + 7) * 8;
+                task.output_sample_len = (12 + 6 + 32 + 96 * 2 + 5) * 8 - 1;
+                d_state = SYMBOL_DET;
+            }
+            else {
+                task.valid = false;
+                d_state = READY_DOWNLINK;
+            }
+            break;
+        default:
+            assert(0);
+    };
 }
 
 void rfidbts_controller::symbol_synch(symbol_sync_task &task) {
     assert(d_state == SYMBOL_DET);
 
-    task.valid = true;
-    task.output_symbol_len = 6 + 12 + 32;
-    task.match_filter_offset = 7;
-    d_state = BIT_DECODE;
+    switch(d_mac_state) {
+        case MS_RN16:
+            task.valid = true;
+            task.output_symbol_len = 6 + 12 + 32;
+            task.match_filter_offset = 7;
+            d_state = BIT_DECODE;
+            break;
+        case MS_EPC:
+            task.valid = true;
+            task.output_symbol_len = 6 + 12 + 32 + 96 * 2;
+            task.match_filter_offset = 7;
+            d_state = BIT_DECODE;
+             break;
+        default:
+             assert(0);
+    };
 }
 
 void rfidbts_controller::bit_decode(bit_decode_task &task) {
     assert(d_state == BIT_DECODE);
 
-    task.valid = true;
-    task.bit_offset = 3 + 6;
-    task.output_bit_len = 16;
-    d_state = WAIT_FOR_DECODE;
+    switch(d_mac_state) {
+        case MS_RN16:
+            task.valid = true;
+            task.bit_offset = 3 + 6;
+            task.output_bit_len = 16;
+            d_state = WAIT_FOR_DECODE;
+            break;
+        case MS_EPC:
+            task.valid = true;
+            task.bit_offset = 3 + 6;
+            task.output_bit_len = 16 + 96;
+            d_state = WAIT_FOR_DECODE;
+            break;
+        default:
+            assert(0);
+    };
 }
 
 void rfidbts_controller::decoded_message(const vector<char> &msg) {
@@ -220,14 +267,29 @@ void rfidbts_controller::decoded_message(const vector<char> &msg) {
 
     assert(d_state == WAIT_FOR_DECODE);
 
-    setup_ack_burst(msg);
-    iter = msg.begin();
-    cout << "Message: ";
-    while(iter != msg.end()) {
-        cout << "0x" << (int) *iter << " ";
-        iter++;
-    }
-    cout << endl;
-    d_state = READY_DOWNLINK;
+    switch(d_mac_state) {
+        case MS_RN16:
+            setup_ack_burst(msg);
+            iter = msg.begin();
+            cout << "RN16 Message: ";
+            while(iter != msg.end()) {
+                cout << "0x" << (int) *iter << " ";
+                iter++;
+            }
+            cout << endl;
+            d_state = PREAMBLE_DET;
+            break;
+        case MS_EPC:
+            iter = msg.begin();
+            cout << "EPC Message: ";
+            while(iter != msg.end()) {
+                cout << "0x" << (int) *iter << " ";
+                iter++;
+            }
+            cout << endl;
+            break;
+        default:
+            assert(0);
+    };
 }
 

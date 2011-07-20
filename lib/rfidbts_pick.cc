@@ -88,11 +88,11 @@ rfidbts_pick_peak::work (int noutput_items,
         //want to offset so the preamble can be used for loop filter settle time
         msg = generate_message();
         generate_mux_commands(rfidbts_mux_slice_dice::MUX_DELETE, 
-                              best_correlator, best_index + 1 - (12 + 7 + 1) * 8, msg);
+                              best_correlator, best_index - task.sample_offset, msg);
         d_queue->handle(msg);
         //copy out start of frame!
         msg = generate_message();
-        generate_mux_commands(rfidbts_mux_slice_dice::MUX_COPY, best_correlator, 2 * 8, msg);
+        generate_mux_commands(rfidbts_mux_slice_dice::MUX_COPY, best_correlator, 8, msg);
         d_queue->handle(msg);
 
         msg = generate_message();
@@ -101,7 +101,7 @@ rfidbts_pick_peak::work (int noutput_items,
 
         msg = generate_message();
         generate_mux_commands(rfidbts_mux_slice_dice::MUX_COPY, 
-                              best_correlator, 480, msg);
+                              best_correlator, task.output_sample_len, msg);
         d_queue->handle(msg);
     }
     else {
@@ -152,7 +152,7 @@ rfidbts_peak_count_stream::rfidbts_peak_count_stream (int frame_sample_len, int 
   : gr_block ("pick_peak",
 		   gr_make_io_signature2 (2, 2, sizeof(char), sizeof(float)),
 		   gr_make_io_signature (1, 1, sizeof(rfidbts_pick_peak::peak_count_pair))),
-    d_state(SEARCH_ACTIVE),
+    d_state(WAIT_NEW_FRAME),
     d_count(0),
     d_frame_sample_len(frame_sample_len),
     d_preamble_thresh(preamble_thresh)
@@ -190,6 +190,8 @@ rfidbts_peak_count_stream::general_work (int noutput_items,
                     memcpy(out, &buf, sizeof(rfidbts_pick_peak::peak_count_pair));
                     oo++;
                     d_state = WAIT_NEW_FRAME;
+                    ii++;
+                    goto end_work;
                 }
                 else if(d_count >= d_preamble_thresh) {
 #ifdef PEAK_COUNT_DEBUG
@@ -200,21 +202,30 @@ rfidbts_peak_count_stream::general_work (int noutput_items,
                     memcpy(out, &buf, sizeof(rfidbts_pick_peak::peak_count_pair));
                     oo++;
                     d_state = WAIT_NEW_FRAME;
+                    //ii++;
+                    goto end_work;
                 }
-                ii++;
-                d_count++;
+                else {
+                    ii++;
+                    d_count++;
+                }
                 break;
             case WAIT_NEW_FRAME:
-                get_tags_in_range(tags, 0, nitems_read(0) + ii, 
-                                  nitems_read(0) + min_in, pmt::pmt_string_to_symbol("rfidbts_burst"));
-                sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
+                tags.clear();
+                get_tags_in_range(tags, 1, nitems_read(1) + (uint64_t) ii, 
+                                  nitems_read(1) + (uint64_t) min_in);
                 if(tags.begin() != tags.end()) {
+                    sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
                     assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
-                    ii = gr_tags::get_nitems(tags[0]) - nitems_read(0);
+                    ii = gr_tags::get_nitems(tags[0]) - (uint64_t) nitems_read(1);
+#ifdef PEAK_COUNT_DEBUG
+                    cout << "Found frame tag " << gr_tags::get_nitems(tags[0]) << endl;
+#endif
                     d_count = 0;
                     d_state = SEARCH_ACTIVE;
                 }
                 else {
+                    cout << "No frame tag " << nitems_read(1) + ii<< " to " << nitems_read(1) + min_in << endl;
                     ii = min_in;
                 }
                 break;
@@ -222,7 +233,7 @@ rfidbts_peak_count_stream::general_work (int noutput_items,
                 assert(0);
         };
     }
-    
+end_work:
     consume_each(ii);
     return oo; 
 }
@@ -358,10 +369,10 @@ int rfidbts_mux_slice_dice::general_work(int noutput_items,
 int rfidbts_mux_slice_dice::search_for_tag(int offset, int input_items) {
     vector<pmt::pmt_t> tags;
     
-    get_tags_in_range(tags, 0, 
+    get_tags_in_range(tags, d_current_cmd.in_sel, 
                       nitems_read(d_current_cmd.in_sel) + offset, 
                       nitems_read(d_current_cmd.in_sel) + input_items, 
-                      pmt::pmt_string_to_symbol("rfidbts_burst"));
+                      pmt::pmt_string_to_symbol("rfid_burst"));
     if(tags.begin() != tags.end()) {
         sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
         assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
@@ -476,3 +487,46 @@ int rfidbts_packetizer::work(int noutput_items,
     return ii;
 }
 
+
+//////////////////////////////////////////////
+
+rfidbts_orthogonal_decode_sptr rfidbts_make_orthogonal_decode() {
+  return gnuradio::get_initial_sptr(new rfidbts_orthogonal_decode());
+}
+
+rfidbts_orthogonal_decode::rfidbts_orthogonal_decode() :
+    gr_sync_decimator("orthogonal_decode",
+             gr_make_io_signature(1, 1, sizeof(gr_complex)),
+             gr_make_io_signature(1, 1, sizeof(char)),
+             2)
+{
+}
+
+
+int rfidbts_orthogonal_decode::work(int noutput_items,
+                                    gr_vector_const_void_star &input_items,
+                                    gr_vector_void_star &output_items) {
+    int ii;
+    gr_complex *in;
+    char *out;
+    float data_0;
+    float data_1;
+
+    ii = 0;
+    in = (gr_complex*) input_items[0];
+    out = (char*) output_items[0];
+
+    while(ii < noutput_items) {
+        data_0 = norm(in[2 * ii] + in[2 * ii + 1]);
+        data_1 = norm(in[2 * ii] - in[2 * ii + 1]);
+        if(data_0 < data_1) {
+            out[ii] = 1;
+        }
+        else {
+            out[ii] = 0;
+        }
+        ii++;
+    }
+
+    return noutput_items;
+}

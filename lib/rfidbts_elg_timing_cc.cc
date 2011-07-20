@@ -95,7 +95,7 @@ rfidbts_elg_timing_cc::rfidbts_elg_timing_cc(float phase_offset,
 
   set_spb(d_spb);
   set_relative_rate(1 / d_spb);
-  set_history(5);
+  set_history(4);
 
   d_early_po = d_po - 0.5;
   d_early_sample = (int) floor(d_early_po);
@@ -270,6 +270,7 @@ int rfidbts_elg_timing_cc::search_tag(int offset, int input_items) {
         d_symbol_counter = task.output_symbol_len;
         //offset of the tag
         count = gr_tags::get_nitems(tags[0]) - nitems_read(0);
+        cout << "Found tag at " << gr_tags::get_nitems(tags[0]) << endl;
         //offset from the match filter
         count += task.match_filter_offset;
         //check for over flow; either 
@@ -282,6 +283,17 @@ int rfidbts_elg_timing_cc::search_tag(int offset, int input_items) {
             d_state = SYMBOL_TRACK;
             count = count - offset;
         }
+        //re init po and spb
+        d_po = d_po_init;
+        d_spb = d_spb_init;
+        d_early_po = d_po - 0.5;
+        d_early_sample = (int) floor(d_early_po);
+        d_early_po = d_early_po - d_early_sample;
+
+        d_late_po = d_po + 0.5;
+        d_late_sample = (int) floor(d_late_po);
+        d_late_po = d_late_po - d_late_sample;
+        d_integrator_1 = 0.0;
     }
     else {
         count = input_items - offset;
