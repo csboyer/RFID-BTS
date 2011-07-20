@@ -31,7 +31,6 @@ TESTS = test_all
 # C/C++ headers get installed in ${prefix}/include/$(modname)
 modinclude_HEADERS = \
 	rfidbts_pie_encoder.h \
-    rfidbts_preamble_det.h \
     rfidbts_gardner_timing_cc.h \
     rfidbts_elg_timing_cc.h \
     rfidbts_receive_gate.h \
@@ -44,7 +43,6 @@ lib_LTLIBRARIES = libgnuradio-rfidbts.la
 
 libgnuradio_rfidbts_la_SOURCES = \
 	rfidbts_pie_encoder.cc \
-    rfidbts_preamble_det.cc \
     rfidbts_gardner_timing_cc.cc \
     rfidbts_elg_timing_cc.cc \
     rfidbts_receive_gate.cc \
