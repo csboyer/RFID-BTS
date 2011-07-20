@@ -5,6 +5,7 @@
 
 %{
 #include "rfidbts_pie_encoder.h"
+#include "rfidbts_preamble.h"
 #include "rfidbts_gardner_timing_cc.h"
 #include "rfidbts_elg_timing_cc.h"
 #include "rfidbts_pick.h"
@@ -12,6 +13,7 @@
 %}
 
 %include "rfidbts_downlink.i"
+%include "rfidbts_preamble.i"
 %include "rfidbts_gardner_timing_cc.i"
 %include "rfidbts_elg_timing_cc.i"
 %include "rfidbts_receive_gate.i"
