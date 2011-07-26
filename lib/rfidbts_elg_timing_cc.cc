@@ -204,7 +204,7 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
   while( ii < ni && oo < noutput_items) {
       switch(d_state) {
           case INIT:
-              ii += search_tag(ii, ninput_items[0]);
+              ii += search_tag(ii, ni);
               break;
           case SYMBOL_TRACK:
               if(d_symbol_counter > 0) {
@@ -235,7 +235,7 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
               break;
           case SAMPLE_DELAY:
               if(d_delay_counter > 0) {
-                  samples_consumed = min(ninput_items[0] - ii, d_delay_counter);
+                  samples_consumed = min(ni - ii, d_delay_counter);
                   ii += samples_consumed;
                   d_delay_counter = d_delay_counter - samples_consumed;
               }
@@ -273,7 +273,7 @@ int rfidbts_elg_timing_cc::search_tag(int offset, int input_items) {
     }
     else {
         count = input_items - offset;
-        cout << "ELG tag not found: " << count << endl;
+        cout << "ELG tag not found: " << nitems_read(0) + offset << " To " << nitems_read(0) + input_items << endl;
     }
 
     return count;
@@ -303,6 +303,7 @@ void rfidbts_elg_timing_cc::fetch_and_process_task() {
 
     switch(task_buf[0].cmd) {
         case rfidbts_controller::SYM_TRACK_CMD:
+            cout << "ELG received SYM track" << endl;
             d_symbol_counter = task_buf[0].output_symbol_len;
             if(task_buf[0].match_filter_offset > 0) {
                 d_state = SAMPLE_DELAY;
@@ -313,6 +314,7 @@ void rfidbts_elg_timing_cc::fetch_and_process_task() {
             }
             break;
         case rfidbts_controller::SYM_DONE_CMD:
+            cout << "ELG received end task" << endl;
             d_state = INIT;
             break;
         default:

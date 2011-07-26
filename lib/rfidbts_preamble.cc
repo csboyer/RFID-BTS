@@ -307,6 +307,7 @@ rfidbts_preamble_align::general_work (int noutput_items,
                 v = pmt::PMT_T;
                 i = pmt::pmt_string_to_symbol(str.str());
                 add_item_tag(0, nitems_written(0) + oo, k, v, i);
+                cout << "Align tagging sample: " << nitems_written(0) + oo << endl;
                 //copy the output
                 out[oo] = in[ii];
                 ii++;
