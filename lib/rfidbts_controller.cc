@@ -32,6 +32,14 @@ void rfidbts_controller::set_gate_queue(gr_msg_queue_sptr q) {
     d_gate_queue = q;
 }
 
+void rfidbts_controller::set_sync_queue(gr_msg_queue_sptr q) {
+    d_sync_queue = q;
+}
+
+void rfidbts_controller::set_align_queue(gr_msg_queue_sptr q) {
+    d_align_queue = q;
+}
+
 void rfidbts_controller::queue_msg(gr_msg_queue_sptr q, size_t msg_size, void *buf) {
     gr_message_sptr msg;
     
@@ -192,7 +200,7 @@ void rfidbts_controller::setup_ack_burst(const vector<char> &RN16) {
 gr_message_sptr rfidbts_controller::make_task_message(size_t task_size, int num_tasks, void *buf) {
     gr_message_sptr msg;
     unsigned char *msg_buf;
-
+    //message format is int + structures
     msg = gr_make_message(0, num_tasks, 1, num_tasks*task_size + sizeof(int));
     msg_buf = msg->msg();
     memcpy(msg_buf, &num_tasks, sizeof(int));
@@ -203,22 +211,26 @@ gr_message_sptr rfidbts_controller::make_task_message(size_t task_size, int num_
 }
 
 void rfidbts_controller::preamble_gate_callback(preamble_gate_task &task) {
+    //number of samples to pass through to the preamble srcher
     task.len = 500;
 }
 
 void rfidbts_controller::preamble_srch_callback(preamble_srch_task &task) {
+    //number of samples the srcher should expect
     task.len = 500;
 }
 
-gr_message_sptr rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
+void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
     preamble_align_task align_task[16];
+    symbol_sync_task sync_task[16];
     unsigned char *buf;
-    int msg_size;
-    
+    int align_msg_size;
+    int sync_msg_size;
+    //task array for preamble align block and symbol sync
     if(task.srch_success) {
         switch(d_mac_state) {
             case MS_RN16:
-                msg_size = 5;
+                align_msg_size = 5;
                 //shift to start of frame
                 align_task[0].cmd = PA_ALIGN_CMD;
                 align_task[0].len = task.len - (12 + 7) * 8;
@@ -228,12 +240,18 @@ gr_message_sptr rfidbts_controller::preamble_align_setup(preamble_srch_task &tas
                 align_task[2].cmd = PA_TAG_CMD;
                 //ungate
                 align_task[3].cmd = PA_UNGATE_CMD;
-                align_task[3].len = (12 + 6 + 32) * 8 + 15;
+                align_task[3].len = (12 + 6 + 32) * 8 + 16 - 1;
                 //signal end
                 align_task[4].cmd = PA_DONE_CMD;
+                ////////////////sync command
+                sync_msg_size = 2;
+                sync_task[0].cmd = SYM_TRACK_CMD;
+                sync_task[0].output_symbol_len = 6 + 12 + 32;
+                sync_task[0].match_filter_offset = 7;
+                sync_task[1].cmd = SYM_DONE_CMD;
                 break;
             case MS_EPC:
-                msg_size = 4;
+                align_msg_size = 4;
                 //shift to start of frame
                 align_task[0].cmd = PA_ALIGN_CMD;
                 align_task[0].len = task.len - (12 + 7) * 8;
@@ -244,20 +262,28 @@ gr_message_sptr rfidbts_controller::preamble_align_setup(preamble_srch_task &tas
                 //ungate
                 align_task[3].cmd = PA_UNGATE_CMD;
                 align_task[3].len = (12 + 6 + 32) * 8 + 15;
+                //
+                sync_msg_size = 1;
+                sync_task[0].cmd = SYM_TRACK_CMD;
+                sync_task[0].output_symbol_len = 6 + 12 + 32;
+                sync_task[0].match_filter_offset = 7;
                 break;
             default:
                 assert(0);
         };
+        d_state = BIT_DECODE;
+        d_sync_queue->insert_tail(make_task_message(sizeof(symbol_sync_task), sync_msg_size, sync_task));
     }
     else {
-        msg_size = 2;
+        //shift one off and discard the rest
+        align_msg_size = 2;
         align_task[0].cmd = PA_ALIGN_CMD;
         align_task[0].len = 1;
         align_task[1].cmd = PA_DONE_CMD;
         d_state = READY_DOWNLINK;
     }
 
-    return make_task_message(sizeof(preamble_align_task), msg_size, align_task);
+    d_align_queue->insert_tail(make_task_message(sizeof(preamble_align_task), align_msg_size, align_task));
 }
 
 void rfidbts_controller::preamble_search(bool success, preamble_search_task &task) {
@@ -326,7 +352,7 @@ void rfidbts_controller::bit_decode(bit_decode_task &task) {
         case MS_EPC:
             task.valid = true;
             task.bit_offset = 3 + 6;
-            task.output_bit_len = 16 + 96;
+            task.output_bit_len = 16;
             d_state = WAIT_FOR_DECODE;
             break;
         default:

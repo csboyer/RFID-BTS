@@ -49,16 +49,12 @@ static const int FUDGE = 16;
 
 rfidbts_elg_timing_cc_sptr rfidbts_make_elg_timing_cc (float phase_offset, 
                                                        float samples_per_symbol, 
-                                                       int in_frame_size, 
-                                                       int out_frame_size,
                                                        float dco_gain, 
                                                        float order_1_gain, 
                                                        float order_2_gain)
 {
   return gnuradio::get_initial_sptr(new rfidbts_elg_timing_cc (phase_offset,
                                                                samples_per_symbol,
-                                                               in_frame_size,
-                                                               out_frame_size,
                                                                dco_gain,
                                                                order_1_gain,
                                                                order_2_gain));
@@ -66,14 +62,12 @@ rfidbts_elg_timing_cc_sptr rfidbts_make_elg_timing_cc (float phase_offset,
 
 rfidbts_elg_timing_cc::rfidbts_elg_timing_cc(float phase_offset, 
                                              float samples_per_symbol, 
-                                             int in_frame_size, 
-                                             int out_frame_size,
                                              float dco_gain, 
                                              float order_1_gain, 
                                              float order_2_gain)
   : gr_block ("elg_timing_cc",
 	          gr_make_io_signature (1, 1, sizeof (gr_complex)),
-	          gr_make_io_signature2 (1, 2, sizeof (gr_complex), sizeof (float))),
+	          gr_make_io_signature (1, 1, sizeof (gr_complex))),
     d_po_init(phase_offset), 
     d_spb_init(samples_per_symbol),
     d_spb_relative_limit(0.05),

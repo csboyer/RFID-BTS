@@ -71,8 +71,6 @@ class rfidbts_preamble_srch : public gr_sync_block
 public:
   ~rfidbts_preamble_srch();
 
-  void set_queue(gr_msg_queue_sptr q);
-
   int work (int noutput_items,
 		    gr_vector_const_void_star &input_items,
             gr_vector_void_star &output_items);
@@ -84,7 +82,6 @@ private:
   friend rfidbts_preamble_srch_sptr rfidbts_make_preamble_srch();
   
   state d_state;
-  gr_msg_queue_sptr d_queue;
   int d_counter;
   int d_frame_len;
 

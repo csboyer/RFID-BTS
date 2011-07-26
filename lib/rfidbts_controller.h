@@ -42,6 +42,8 @@ private:
 
     gr_msg_queue_sptr d_encoder_queue;
     gr_msg_queue_sptr d_gate_queue;
+    gr_msg_queue_sptr d_sync_queue;
+    gr_msg_queue_sptr d_align_queue;
 
     friend rfidbts_controller_sptr rfidbts_make_controller();
     gr_message_sptr make_task_message(size_t task_size, int num_tasks, void *buf);
@@ -115,12 +117,14 @@ public:
 //queue presets
     void set_encoder_queue(gr_msg_queue_sptr q);
     void set_gate_queue(gr_msg_queue_sptr q);
+    void set_sync_queue(gr_msg_queue_sptr q);
+    void set_align_queue(gr_msg_queue_sptr q);
 //python interface
     void issue_downlink_command();
 //call backs by the different blocks - should run sequentulally
     void preamble_gate_callback(preamble_gate_task &task);
     void preamble_srch_callback(preamble_srch_task &task);
-    gr_message_sptr preamble_align_setup(preamble_srch_task &task);
+    void preamble_align_setup(preamble_srch_task &task);
     /////////////////
     void preamble_search(bool success, preamble_search_task &task);
     void symbol_synch(symbol_sync_task &task);

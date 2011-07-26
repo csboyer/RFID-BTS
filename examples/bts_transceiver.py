@@ -15,25 +15,26 @@ class symbol_mapper(gr.hier_block2):
                                 "symbol_mapper",
                                 gr.io_signature(1, 1, gr.sizeof_gr_complex),
                                 gr.io_signature(1, 1, gr.sizeof_gr_complex))
+#half symbol match filter
         half_sym_taps = array([1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0])
 #normalize
         half_sym_taps = half_sym_taps / sqrt(dot(half_sym_taps,half_sym_taps))
         self.mf = gr.fir_filter_ccf(1, half_sym_taps)
         self.timing_recovery = rfidbts.elg_timing_cc(phase_offset = 0,
                                                      samples_per_symbol = 8,
-                                                     in_frame_size = 500,
-                                                     out_frame_size = 7 + 12 + 32,
                                                      dco_gain = 0.04,
                                                      order_1_gain = 0.1,
                                                      order_2_gain = 0.01)
-
+        q = gr.msg_queue(1000)
+        self.timing_recovery.set_queue(q)
+        rfidbts.cvar.rfid_mac.set_sync_queue(q)
         timing_s = gr.file_sink(gr.sizeof_gr_complex, "timing/symbols.dat")
         self.connect(self.timing_recovery, timing_s)
         self.connect(self, self.mf, self.timing_recovery, self)
 ###########################################
 #Searches for the preamble from a sample stream
 class preamble_search(gr.hier_block2):
-    def __init__(self, frame_size_rn16):
+    def __init__(self):
         gr.hier_block2.__init__(self,
                                 "preamble_search",
                                 gr.io_signature(1, 1, gr.sizeof_gr_complex),
@@ -69,7 +70,7 @@ class preamble_search(gr.hier_block2):
         preamble_srch = rfidbts.preamble_srch()
         preamble_align = rfidbts.preamble_align()
         q = gr.msg_queue(1000)
-        preamble_srch.set_queue(q)
+        rfidbts.cvar.rfid_mac.set_align_queue(q)
         preamble_align.set_queue(q)
 #file sinks
         slicer_dicer_dump = gr.file_sink(gr.sizeof_gr_complex,  "search/slicer_dicer.dat")
@@ -79,6 +80,7 @@ class preamble_search(gr.hier_block2):
 #connect everything
         self.connect(self, preamble_align, self)
         self.connect(self, preamble_gate, corr, c_to_r, peak_d, preamble_srch)
+        self.connect(c_to_r, (preamble_srch,1))
 
         self.connect(c_to_r, ms)
         self.connect((peak_d,0), strobe)
@@ -109,7 +111,6 @@ class proto_transceiver(gr.hier_block2):
 ####################################
 #downlink blocks
         q_blocker = gr.msg_queue(100)
-        frame_size_rn16 = int((32 + 32 + 12) * 8 + int(75*0.4*1.024))
         self.TX_blocker = rfidbts.receive_gate(threshold = 0.15,     #bit above the noise floor
                                                off_max = 15)         #should not be in the off state for more than 13 us
         self.TX_blocker.set_gate_queue(q_blocker)
@@ -120,7 +121,7 @@ class proto_transceiver(gr.hier_block2):
                              reference = 0.707, 
                              gain = 100.0,
                              max_gain = 1000.0)
-        self.search = preamble_search(frame_size_rn16)
+        self.search = preamble_search()
         self.half_symbols = symbol_mapper()
         self.decoder = rfidbts.orthogonal_decode()
         self.framer = rfidbts.packetizer()

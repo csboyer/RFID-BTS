@@ -125,7 +125,9 @@ rfidbts_preamble_srch_sptr rfidbts_make_preamble_srch ()
 rfidbts_preamble_srch::rfidbts_preamble_srch()
     : gr_sync_block("preamble_srch",
                gr_make_io_signature2(2, 2, sizeof(char), sizeof(float)),
-               gr_make_io_signature(-1, -1, 0))
+               gr_make_io_signature(0, 0, 0)),
+    d_state(PS_NEXT_FRAME),
+    d_counter(0)
 {
     tag_propagation_policy_t p;
     p = TPP_DONT;
@@ -133,10 +135,6 @@ rfidbts_preamble_srch::rfidbts_preamble_srch()
 }
 
 rfidbts_preamble_srch::~rfidbts_preamble_srch() {
-}
-
-void rfidbts_preamble_srch::set_queue(gr_msg_queue_sptr q) {
-    d_queue = q;
 }
 
 int
@@ -148,7 +146,6 @@ rfidbts_preamble_srch::work (int noutput_items,
     int offset;
     char *in;
     rfidbts_controller::preamble_srch_task task;
-    gr_message_sptr outgoing_msg;
 
     ii = 0;
     in = (char*) input_items[0];
@@ -175,8 +172,7 @@ rfidbts_preamble_srch::work (int noutput_items,
                     //queue up commands
                     task.len = offset + d_frame_len - d_counter;
                     task.srch_success = true;
-                    outgoing_msg = rfid_mac->preamble_align_setup(task);
-                    d_queue->insert_tail(outgoing_msg);
+                    rfid_mac->preamble_align_setup(task);
                     //adjust state vars
                     d_state = PS_NEXT_FRAME;
                     d_counter = d_counter - m;
@@ -188,8 +184,7 @@ rfidbts_preamble_srch::work (int noutput_items,
                 if(d_counter == 0) {
                     //send failure message
                     task.srch_success = false;
-                    outgoing_msg = rfid_mac->preamble_align_setup(task);
-                    d_queue->insert_tail(outgoing_msg);
+                    rfid_mac->preamble_align_setup(task);
                     d_state = PS_NEXT_FRAME;
                 }
                 break;
@@ -220,7 +215,8 @@ rfidbts_preamble_align_sptr rfidbts_make_preamble_align ()
 rfidbts_preamble_align::rfidbts_preamble_align()
     : gr_block("preamble_align",
                gr_make_io_signature(1, 1, sizeof(gr_complex)),
-               gr_make_io_signature(1, 1, sizeof(gr_complex)))
+               gr_make_io_signature(1, 1, sizeof(gr_complex))),
+    d_state(PA_TAG_SEARCH)
 {
     tag_propagation_policy_t p;
     p = TPP_DONT;

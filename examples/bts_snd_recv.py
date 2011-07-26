@@ -19,6 +19,12 @@ class app_top_block(gr.top_block):
         
         self.options = self.run_parser()
         self.transceiver = bts_transceiver.proto_transceiver()
+        r = gr.enable_realtime_scheduling()
+        if r == gr.RT_OK:
+            print "Real time enabled"
+        else:
+            print "Real time enable failed!"
+
         if rcvr_hack:
             self.src = gr.throttle(itemsize = gr.sizeof_gr_complex,
                                    samples_per_sec = self.options.rx_samp_rate)

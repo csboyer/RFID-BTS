@@ -39,6 +39,8 @@ rfidbts_controller ();
 public:
 void set_encoder_queue(gr_msg_queue_sptr q);
 void set_gate_queue(gr_msg_queue_sptr q);
+void set_sync_queue(gr_msg_queue_sptr q);
+void set_align_queue(gr_msg_queue_sptr q);
 void issue_downlink_command();
 };
 

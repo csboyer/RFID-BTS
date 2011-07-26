@@ -30,7 +30,7 @@
 
 
 GR_SWIG_BLOCK_MAGIC(rfidbts,elg_timing_cc);
-rfidbts_elg_timing_cc_sptr rfidbts_make_elg_timing_cc (float phase_offset, float samples_per_symbol, int in_frame_size, int out_frame_size, float dco_gain, float order_1_gain, float order_2_gain);
+rfidbts_elg_timing_cc_sptr rfidbts_make_elg_timing_cc (float phase_offset, float samples_per_symbol, float dco_gain, float order_1_gain, float order_2_gain);
 class rfidbts_elg_timing_cc : public gr_block
 {
  public:

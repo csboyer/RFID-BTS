@@ -39,8 +39,6 @@ GR_SWIG_BLOCK_MAGIC(rfidbts,preamble_srch);
 rfidbts_preamble_srch_sptr rfidbts_make_preamble_srch ();
 class rfidbts_preamble_srch : public gr_sync_block
 {
-    public:
-        void set_queue(gr_msg_queue_sptr q);
 };
 
 GR_SWIG_BLOCK_MAGIC(rfidbts,preamble_align);
