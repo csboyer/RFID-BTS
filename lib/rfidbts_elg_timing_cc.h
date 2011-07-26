@@ -27,6 +27,10 @@
 #include <gr_block.h>
 #include <gr_complex.h>
 #include <gr_math.h>
+#include <queue>
+#include <gr_msg_queue.h>
+#include <gr_message.h>
+#include <rfidbts_controller.h>
 
 class gri_mmse_fir_interpolator_cc;
 
@@ -61,6 +65,8 @@ class rfidbts_elg_timing_cc : public gr_block
       d_max_spb = spb*(1.0 + d_spb_relative_limit);
       d_spb_mid = 0.5*(d_min_spb+d_max_spb);
   }
+
+  void set_queue(gr_msg_queue_sptr q);
 
 
 protected:
@@ -109,10 +115,15 @@ protected:
   gr_complex                    d_s_0T;
   gr_complex                    d_s_late;
 
+  gr_msg_queue_sptr d_queue;
+  std::queue<rfidbts_controller::symbol_sync_task> d_task_queue;
+
+  void reset_elg_values();
   void update_loopfilter(float timing_error);
   int update_dco();
   float gen_output_error(const gr_complex *in);
   int search_tag(int offset, int input_items);
+  void fetch_and_process_task();
 
   friend rfidbts_elg_timing_cc_sptr rfidbts_make_elg_timing_cc (float phase_offset, 
                                                                 float samples_per_symbol, 

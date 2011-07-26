@@ -23,10 +23,13 @@
 #ifndef INCLUDED_PREAMBLE_H
 #define	INCLUDED_PREAMBLE_H
 
+#include <queue>
+
 #include <gr_block.h>
 #include <gr_sync_block.h>
 #include <gr_msg_queue.h>
 
+#include <rfidbts_controller.h>
 
 class rfidbts_preamble_gate;
 typedef boost::shared_ptr<rfidbts_preamble_gate> rfidbts_preamble_gate_sptr;
@@ -77,14 +80,15 @@ public:
 protected:
   rfidbts_preamble_srch();
 private:
-  enum state {PS_NEXT_FRAME, PA_STROBE_SEARCH};
+  enum state {PS_NEXT_FRAME, PS_STROBE_SEARCH};
   friend rfidbts_preamble_srch_sptr rfidbts_make_preamble_srch();
   
   state d_state;
   gr_msg_queue_sptr d_queue;
-
-  void enqueue_task();
   int d_counter;
+  int d_frame_len;
+
+  bool find_strobe(char *start, char * end, int *offset);
 };
 
 /////////////////////////////////////////////
@@ -109,14 +113,15 @@ public:
 protected:
   rfidbts_preamble_align();
 private:
-  enum state {PA_TAG_SEARCH, PA_OFFSET, PA_PASS};
+  enum state {PA_TAG_SEARCH, PA_ALIGN, PA_UNGATE, PA_TAG};
   friend rfidbts_preamble_align_sptr rfidbts_make_preamble_align();
 
   gr_msg_queue_sptr d_queue;
+  std::queue<rfidbts_controller::preamble_align_task> d_task_queue;
   state d_state;
-  int counter;
+  int d_counter;
 
-  bool fetch_process_task();
+  void fetch_and_process_task();
 };
 
 #endif

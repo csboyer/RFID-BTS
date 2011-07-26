@@ -75,10 +75,7 @@ rfidbts_elg_timing_cc::rfidbts_elg_timing_cc(float phase_offset,
 	          gr_make_io_signature (1, 1, sizeof (gr_complex)),
 	          gr_make_io_signature2 (1, 2, sizeof (gr_complex), sizeof (float))),
     d_po_init(phase_offset), 
-    d_po(phase_offset),
     d_spb_init(samples_per_symbol),
-    d_spb(samples_per_symbol),
-    d_integrator_1(0.0),
     d_spb_relative_limit(0.05),
     d_interp(new gri_mmse_fir_interpolator_cc()),
     d_verbose(gr_prefs::singleton()->get_bool("elg_timing_cc", "verbose", false)),
@@ -97,14 +94,7 @@ rfidbts_elg_timing_cc::rfidbts_elg_timing_cc(float phase_offset,
   set_relative_rate(1 / d_spb);
   set_history(4);
 
-  d_early_po = d_po - 0.5;
-  d_early_sample = (int) floor(d_early_po);
-  d_early_po = d_early_po - d_early_sample;
-
-  d_late_po = d_po + 0.5;
-  d_late_sample = (int) floor(d_late_po);
-  d_late_po = d_late_po - d_late_sample;
-
+  reset_elg_values();
   debug_count = 0;
 
 }
@@ -112,6 +102,23 @@ rfidbts_elg_timing_cc::rfidbts_elg_timing_cc(float phase_offset,
 rfidbts_elg_timing_cc::~rfidbts_elg_timing_cc ()
 {
   delete d_interp;
+}
+
+void rfidbts_elg_timing_cc::reset_elg_values() {
+    d_po = d_po_init;
+    d_spb = d_spb_init;
+    d_early_po = d_po - 0.5;
+    d_early_sample = (int) floor(d_early_po);
+    d_early_po = d_early_po - d_early_sample;
+
+    d_late_po = d_po + 0.5;
+    d_late_sample = (int) floor(d_late_po);
+    d_late_po = d_late_po - d_late_sample;
+    d_integrator_1 = 0.0;
+}
+
+void rfidbts_elg_timing_cc::set_queue(gr_msg_queue_sptr q) {
+    d_queue = q;
 }
 
 void
@@ -220,18 +227,17 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
                   else {
                       ii += samples_consumed;
                   }
-                  // Loop filter output
-                  if(output_items.size() >= 2) {
-                      float *foptr = (float*) output_items[1];
-                      foptr[oo] = d_loopfilter;
-                  }
                   //write output
                   out[oo] = d_s_0T;
                   oo++;
                   d_symbol_counter--;
+
+                  if(d_symbol_counter == 0) {
+                      goto work_end;
+                  }
               }
               else {
-                  d_state = INIT;
+                  fetch_and_process_task();
               }
               break;
           case SAMPLE_DELAY:
@@ -248,7 +254,7 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
               assert(0);
       };
   }
-
+work_end:
   assert(ii <= ninput_items[0] );
   consume_each(ii);
   return oo;
@@ -266,38 +272,56 @@ int rfidbts_elg_timing_cc::search_tag(int offset, int input_items) {
     if(tags.begin() != tags.end()) {
         sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
         assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
-        rfid_mac->symbol_synch(task);
-        d_symbol_counter = task.output_symbol_len;
-        //offset of the tag
-        count = gr_tags::get_nitems(tags[0]) - nitems_read(0);
-        cout << "Found tag at " << gr_tags::get_nitems(tags[0]) << endl;
-        //offset from the match filter
-        count += task.match_filter_offset;
-        //check for over flow; either 
-        if(count > input_items) {
-            d_delay_counter = input_items - count;
-            count = input_items - offset;
-            d_state = SAMPLE_DELAY;
-        }
-        else {
-            d_state = SYMBOL_TRACK;
-            count = count - offset;
-        }
-        //re init po and spb
-        d_po = d_po_init;
-        d_spb = d_spb_init;
-        d_early_po = d_po - 0.5;
-        d_early_sample = (int) floor(d_early_po);
-        d_early_po = d_early_po - d_early_sample;
+        fetch_and_process_task();
 
-        d_late_po = d_po + 0.5;
-        d_late_sample = (int) floor(d_late_po);
-        d_late_po = d_late_po - d_late_sample;
-        d_integrator_1 = 0.0;
+        count = gr_tags::get_nitems(tags[0]) - nitems_read(0);
+        //re init po and spb
+        reset_elg_values();
     }
     else {
         count = input_items - offset;
     }
 
     return count;
+}
+
+void rfidbts_elg_timing_cc::fetch_and_process_task() {
+    gr_message_sptr msg;
+    int size;
+    unsigned char *msg_buf;
+    rfidbts_controller::symbol_sync_task task_buf[16];
+
+    if(d_task_queue.empty()) {
+        msg = d_queue->delete_head();
+        msg_buf = msg->msg();
+        memcpy(&size, msg_buf, sizeof(int));
+        assert(size < 16);
+        memcpy(task_buf, msg_buf + sizeof(int), sizeof(rfidbts_controller::symbol_sync_task) * size);
+        //make queue
+        for(int ii = 1; ii < size; ii++) {
+            d_task_queue.push(task_buf[ii]);
+        }
+    }
+    else {
+        task_buf[0] = d_task_queue.front();
+        d_task_queue.pop();
+    }
+
+    switch(task_buf[0].cmd) {
+        case rfidbts_controller::SYM_TRACK_CMD:
+            d_symbol_counter = task_buf[0].output_symbol_len;
+            if(task_buf[0].match_filter_offset > 0) {
+                d_state = SAMPLE_DELAY;
+                d_delay_counter = task_buf[0].match_filter_offset;
+            }
+            else {
+                d_state = SYMBOL_TRACK;
+            }
+            break;
+        case rfidbts_controller::SYM_DONE_CMD:
+            d_state = INIT;
+            break;
+        default:
+            assert(0);
+    };
 }

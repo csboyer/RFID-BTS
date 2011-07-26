@@ -172,8 +172,8 @@ void rfidbts_controller::setup_query_ack_rep_burst() {
     setup_on(); //~100ms
     //receive gate commands
     setup_gate( 25 + 75 + 83 + 8 * 50 + 14 * 25 + 10);     //length of query - data0, RT cal TRCal + data + 10us of buffer
-    setup_ungate(800);   //length of RN16 backscatter say 1500 for now ~1.5ms
-    setup_gate_done(); //search for next command
+    setup_ungate(800);   //length of RN16 backscatter say 800 for now ~.8ms
+    setup_gate_done(); //search for next command, ie next delimiter
 }
 
 void rfidbts_controller::setup_ack_burst(const vector<char> &RN16) {
@@ -188,6 +188,78 @@ void rfidbts_controller::setup_ack_burst(const vector<char> &RN16) {
     setup_gate_done();
 }
 /////////// baseband call backs
+
+gr_message_sptr rfidbts_controller::make_task_message(size_t task_size, int num_tasks, void *buf) {
+    gr_message_sptr msg;
+    unsigned char *msg_buf;
+
+    msg = gr_make_message(0, num_tasks, 1, num_tasks*task_size + sizeof(int));
+    msg_buf = msg->msg();
+    memcpy(msg_buf, &num_tasks, sizeof(int));
+    msg_buf += sizeof(int);
+    memcpy(msg_buf, buf, task_size * num_tasks);
+
+    return msg;
+}
+
+void rfidbts_controller::preamble_gate_callback(preamble_gate_task &task) {
+    task.len = 500;
+}
+
+void rfidbts_controller::preamble_srch_callback(preamble_srch_task &task) {
+    task.len = 500;
+}
+
+gr_message_sptr rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
+    preamble_align_task align_task[16];
+    unsigned char *buf;
+    int msg_size;
+    
+    if(task.srch_success) {
+        switch(d_mac_state) {
+            case MS_RN16:
+                msg_size = 5;
+                //shift to start of frame
+                align_task[0].cmd = PA_ALIGN_CMD;
+                align_task[0].len = task.len - (12 + 7) * 8;
+                align_task[1].cmd = PA_UNGATE_CMD;
+                align_task[1].len = 8;
+                //tag the start of frame
+                align_task[2].cmd = PA_TAG_CMD;
+                //ungate
+                align_task[3].cmd = PA_UNGATE_CMD;
+                align_task[3].len = (12 + 6 + 32) * 8 + 15;
+                //signal end
+                align_task[4].cmd = PA_DONE_CMD;
+                break;
+            case MS_EPC:
+                msg_size = 4;
+                //shift to start of frame
+                align_task[0].cmd = PA_ALIGN_CMD;
+                align_task[0].len = task.len - (12 + 7) * 8;
+                align_task[1].cmd = PA_UNGATE_CMD;
+                align_task[1].len = 8;
+                //tag the start of frame
+                align_task[2].cmd = PA_TAG_CMD;
+                //ungate
+                align_task[3].cmd = PA_UNGATE_CMD;
+                align_task[3].len = (12 + 6 + 32) * 8 + 15;
+                break;
+            default:
+                assert(0);
+        };
+    }
+    else {
+        msg_size = 2;
+        align_task[0].cmd = PA_ALIGN_CMD;
+        align_task[0].len = 1;
+        align_task[1].cmd = PA_DONE_CMD;
+        d_state = READY_DOWNLINK;
+    }
+
+    return make_task_message(sizeof(preamble_align_task), msg_size, align_task);
+}
+
 void rfidbts_controller::preamble_search(bool success, preamble_search_task &task) {
     assert(d_state == PREAMBLE_DET);
     switch(d_mac_state) {

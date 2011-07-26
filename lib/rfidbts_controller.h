@@ -44,7 +44,7 @@ private:
     gr_msg_queue_sptr d_gate_queue;
 
     friend rfidbts_controller_sptr rfidbts_make_controller();
-
+    gr_message_sptr make_task_message(size_t task_size, int num_tasks, void *buf);
     void queue_msg(gr_msg_queue_sptr q, size_t msg_size, void *buf);
     //encoder
     void setup_on_wait(int len);
@@ -80,27 +80,48 @@ public:
         rx_burst_cmd cmd;
         int len;
     };
+    //////////////////tasks
     struct preamble_search_task {
         bool valid;
         int sample_offset;
         int output_sample_len;
-    };
-    struct symbol_sync_task {
-        bool valid;
-        int output_symbol_len;
-        int match_filter_offset;
     };
     struct bit_decode_task {
         bool valid;
         int bit_offset;
         int output_bit_len;
     };
+    //////////////////////////
+    struct preamble_gate_task {
+        int len;
+    };
+    struct preamble_srch_task {
+        int len;
+        bool srch_success;
+    };
+    enum preamble_align_cmd {PA_ALIGN_CMD, PA_TAG_CMD, PA_UNGATE_CMD, PA_DONE_CMD};
+    struct preamble_align_task {
+        preamble_align_cmd cmd;
+        int len;
+    };
+    enum symbol_sync_cmd {SYM_TRACK_CMD, SYM_DONE_CMD};
+    struct symbol_sync_task {
+        bool valid;
+        symbol_sync_cmd cmd;
+        int output_symbol_len;
+        int match_filter_offset;
+    };
+    //////////////////////////
 //queue presets
     void set_encoder_queue(gr_msg_queue_sptr q);
     void set_gate_queue(gr_msg_queue_sptr q);
 //python interface
     void issue_downlink_command();
 //call backs by the different blocks - should run sequentulally
+    void preamble_gate_callback(preamble_gate_task &task);
+    void preamble_srch_callback(preamble_srch_task &task);
+    gr_message_sptr preamble_align_setup(preamble_srch_task &task);
+    /////////////////
     void preamble_search(bool success, preamble_search_task &task);
     void symbol_synch(symbol_sync_task &task);
     void bit_decode(bit_decode_task &task);
