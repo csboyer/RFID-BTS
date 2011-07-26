@@ -80,7 +80,8 @@ rfidbts_preamble_gate::general_work (int noutput_items,
                 tags.clear();
                 get_tags_in_range(tags, 0, 
                                   nitems_read(0) + (uint64_t) ii, 
-                                  nitems_read(0) + (uint64_t) ni);
+                                  nitems_read(0) + (uint64_t) ni,
+                                  pmt::pmt_string_to_symbol("rfid_burst"));
                 if(tags.begin() != tags.end()) {
                     sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
                     assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
@@ -216,7 +217,8 @@ rfidbts_preamble_align::rfidbts_preamble_align()
     : gr_block("preamble_align",
                gr_make_io_signature(1, 1, sizeof(gr_complex)),
                gr_make_io_signature(1, 1, sizeof(gr_complex))),
-    d_state(PA_TAG_SEARCH)
+    d_state(PA_TAG_SEARCH),
+    d_task_queue()
 {
     tag_propagation_policy_t p;
     p = TPP_DONT;
@@ -258,8 +260,10 @@ rfidbts_preamble_align::general_work (int noutput_items,
             case PA_TAG_SEARCH:
                 get_tags_in_range(tags, 0, 
                                   nitems_read(0) + (uint64_t) ii, 
-                                  nitems_read(0) + (uint64_t) ni);
+                                  nitems_read(0) + (uint64_t) ni,
+                                  pmt::pmt_string_to_symbol("rfid_burst"));
                 if(tags.begin() != tags.end()) {
+                    cout << "Preamble align found tag" << endl;
                     sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
                     assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
                     ii = gr_tags::get_nitems(tags[0]) - (uint64_t) nitems_read(0);
@@ -323,37 +327,41 @@ void rfidbts_preamble_align::fetch_and_process_task() {
     gr_message_sptr msg;
     int size;
     rfidbts_controller::preamble_align_task buf[16];
-    rfidbts_controller::preamble_align_task task;
-
+    
     if(d_task_queue.empty()) {
+        cout << "Align task queue is empty, getting more tasks" << endl;
         msg = d_queue->delete_head();
         memcpy(&size, msg->msg(), sizeof(int));
         assert(size < 16);
         memcpy(buf, msg->msg() + sizeof(int), sizeof(rfidbts_controller::preamble_align_task) * size);
         //make queue
-        task = buf[0];
         for(int ii = 1; ii < size; ii++) {
             d_task_queue.push(buf[ii]);
         }
     }
     else {
-        task = d_task_queue.front();
+        cout << "Align task queue not empty." << endl;
+        buf[0] = d_task_queue.front();
         d_task_queue.pop();
     }
 
-    switch(task.cmd) {
+    switch(buf[0].cmd) {
         case rfidbts_controller::PA_ALIGN_CMD:
+            cout << "PA_ALIGN task: " << buf[0].len << endl;
             d_state = PA_ALIGN;
-            d_counter = task.len;
+            d_counter = buf[0].len;
             break;
         case rfidbts_controller::PA_TAG_CMD:
+            cout << "PA_TAG task " << endl;
             d_state = PA_TAG;
             break;
         case rfidbts_controller::PA_UNGATE_CMD:
+            cout << "PA_UNGATE task: " << buf[0].len << endl;
             d_state = PA_UNGATE;
-            d_counter = task.len;
+            d_counter = buf[0].len;
             break;
         case rfidbts_controller::PA_DONE_CMD:
+            cout << "PA_DONE task " << endl;
             d_state = PA_TAG_SEARCH;
             break;
         default:

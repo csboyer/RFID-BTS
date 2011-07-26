@@ -213,11 +213,13 @@ gr_message_sptr rfidbts_controller::make_task_message(size_t task_size, int num_
 void rfidbts_controller::preamble_gate_callback(preamble_gate_task &task) {
     //number of samples to pass through to the preamble srcher
     task.len = 500;
+    cout << "Gate callback passing samples: " << task.len << endl;
 }
 
 void rfidbts_controller::preamble_srch_callback(preamble_srch_task &task) {
     //number of samples the srcher should expect
     task.len = 500;
+    cout << "Srch callback passing samples: " << task.len << endl;
 }
 
 void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
@@ -230,6 +232,7 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
     if(task.srch_success) {
         switch(d_mac_state) {
             case MS_RN16:
+                cout << "Issuing RN16 tasks; preamble found at: " << task.len << endl;
                 align_msg_size = 5;
                 //shift to start of frame
                 align_task[0].cmd = PA_ALIGN_CMD;
@@ -251,6 +254,7 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
                 sync_task[1].cmd = SYM_DONE_CMD;
                 break;
             case MS_EPC:
+                cout << "Issuing EPC tasks" << endl;
                 align_msg_size = 4;
                 //shift to start of frame
                 align_task[0].cmd = PA_ALIGN_CMD;

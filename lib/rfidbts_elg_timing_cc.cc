@@ -80,12 +80,11 @@ rfidbts_elg_timing_cc::rfidbts_elg_timing_cc(float phase_offset,
     d_state(INIT)
 {
   tag_propagation_policy_t p;
-
   p = TPP_DONT;
   set_tag_propagation_policy(p);
 
-  set_spb(d_spb);
-  set_relative_rate(1 / d_spb);
+  set_spb(d_spb_init);
+  set_relative_rate(1 / d_spb_init);
   set_history(4);
 
   reset_elg_values();
@@ -261,19 +260,20 @@ int rfidbts_elg_timing_cc::search_tag(int offset, int input_items) {
 
     get_tags_in_range(tags, 0,
                       nitems_read(0) + offset, nitems_read(0) + input_items,
-                      pmt::pmt_string_to_symbol("rfidbts_burst"));
+                      pmt::pmt_string_to_symbol("rfid_burst"));
     //see if the tag marking the start of the stream exists, if so start there.
     if(tags.begin() != tags.end()) {
         sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
         assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
         fetch_and_process_task();
-
+        cout << "ELG found tag: " << gr_tags::get_nitems(tags[0]) << endl;
         count = gr_tags::get_nitems(tags[0]) - nitems_read(0);
         //re init po and spb
         reset_elg_values();
     }
     else {
         count = input_items - offset;
+        cout << "ELG tag not found: " << count << endl;
     }
 
     return count;
