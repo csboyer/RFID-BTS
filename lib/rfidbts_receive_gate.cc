@@ -53,7 +53,6 @@ rfidbts_receive_gate::rfidbts_receive_gate(float threshold,
     d_state(ST_BOOTUP)
 {
   tag_propagation_policy_t p;
-
   p = TPP_DONT;
   set_tag_propagation_policy(p);
 }
@@ -73,10 +72,13 @@ int rfidbts_receive_gate::general_work(
     int oo = 0;
     int nii = (int) ninput_items[0];
     int m;
-    float mag_sqrd;
     const gr_complex *in = (const gr_complex*) input_items[0];
     gr_complex *out = (gr_complex *) output_items[0];
-    rfidbts_controller::rx_burst_task task;
+    stringstream str;
+    str << name() << unique_id();
+    pmt::pmt_t k = pmt::pmt_string_to_symbol("rfid_burst");
+    pmt::pmt_t v = pmt::PMT_T;
+    pmt::pmt_t i = pmt::pmt_string_to_symbol(str.str());
 
     while(ii < nii && oo < noutput_items) {
         switch(d_state) {
@@ -111,22 +113,19 @@ int rfidbts_receive_gate::general_work(
                     d_state = ST_TXOFF;
                 }
                 else if( abs(in[ii]) > d_threshold  ) {
-                    d_state = ST_COMMAND;
+                    process_cmd_queue();
                 }
                 else {
                     d_counter++;
                     ii++;
                 }
                 break;
-            case ST_COMMAND:
-                if(!d_cmd_queue->empty_p()) {
-                    //copy out command
-                    process_cmd_queue(&task);
-                    decode_task(task, oo);
-                }
-                else {
-                    goto work_exit;
-                }
+            case ST_TAG:
+                add_item_tag(0, nitems_written(0) + oo, k, v, i);
+                out[oo] = in[ii];
+                ii++;
+                oo++;
+                process_cmd_queue();
                 break;
             case ST_WAIT:
                 if(d_counter > 0) {
@@ -135,7 +134,7 @@ int rfidbts_receive_gate::general_work(
                     ii += m;
                 }
                 else {
-                    d_state = ST_COMMAND;
+                    process_cmd_queue();
                 }
                 break;
             case ST_UNMUTE:
@@ -145,9 +144,13 @@ int rfidbts_receive_gate::general_work(
                     d_counter = d_counter - m;
                     oo += m;
                     ii += m;
+
+                    if(d_counter == 0) {
+                        goto work_exit;
+                    }
                 }
                 else {
-                    d_state = ST_COMMAND;
+                    process_cmd_queue();
                 }
                 break;
             default:
@@ -161,37 +164,39 @@ work_exit:
     return oo;
 }
 
-void rfidbts_receive_gate::add_tag(int offset) {
-    stringstream str;
-
-    str << name() << unique_id();
-    pmt::pmt_t k = pmt::pmt_string_to_symbol("rfid_burst");
-    pmt::pmt_t v = pmt::PMT_T;
-    pmt::pmt_t i = pmt::pmt_string_to_symbol(str.str());
-    cout << "Adding tag to sample" << nitems_written(0) + offset << endl;
-    add_item_tag(0, nitems_written(0) + offset, k, v, i);
-}
-
-void rfidbts_receive_gate::process_cmd_queue(rfidbts_controller::rx_burst_task *task) {
+void rfidbts_receive_gate::process_cmd_queue() {
     gr_message_sptr msg;
+    rfidbts_controller::rx_burst_task task_buf[16];
+    unsigned char *buf;
+    int msg_size;
 
-    msg = d_cmd_queue->delete_head();
-    memcpy(task, msg->msg(), sizeof(rfidbts_controller::rx_burst_task));
+    if(d_task_queue.empty()) {
+        msg = d_cmd_queue->delete_head();
+        buf = msg->msg();
+        memcpy(&msg_size, buf, sizeof(int));
+        memcpy(task_buf, buf + sizeof(int), msg_size * sizeof(rfidbts_controller::rx_burst_task));
+        for(int ii = 1; ii < msg_size; ii++) {
+            d_task_queue.push(task_buf[ii]);
+        }
+    }
+    else {
+        task_buf[0] = d_task_queue.front();
+        d_task_queue.pop();
+    }
 
-}
-
-void rfidbts_receive_gate::decode_task(rfidbts_controller::rx_burst_task &task, int oo) {
-    switch(task.cmd) {
+    switch(task_buf[0].cmd) {
         case rfidbts_controller::RXB_GATE:
-            d_counter = task.len;
+            d_counter = task_buf[0].len;
             d_state = ST_WAIT;
             cout << "Gate received RXB_GATE" << endl;
             break;
         case rfidbts_controller::RXB_UNGATE:
-            add_tag(oo);
-            d_counter = task.len;
+            d_counter = task_buf[0].len;
             d_state = ST_UNMUTE;
             cout << "Gate received RXB_UNGATE" << endl;
+            break;
+        case rfidbts_controller::RXB_TAG:
+            d_state = ST_TAG;
             break;
         case rfidbts_controller::RXB_DONE:
             d_state = ST_TXOFF;

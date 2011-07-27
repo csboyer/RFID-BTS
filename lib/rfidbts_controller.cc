@@ -149,51 +149,52 @@ void rfidbts_controller::setup_end() {
 }
 
 ////////////////gate primatives
-void rfidbts_controller::setup_gate(int len) {
-    rx_burst_task task;
-
-    task.cmd = RXB_GATE;
-    task.len = len;
-    queue_msg(d_gate_queue, sizeof(rx_burst_task), &task);
+void rfidbts_controller::setup_gate(rx_burst_task *t, int len) {
+    t->cmd = RXB_GATE;
+    t->len = len;
 }
 
-void rfidbts_controller::setup_ungate(int len) {
-    rx_burst_task task;
-
-    task.cmd = RXB_UNGATE;
-    task.len = len;
-    queue_msg(d_gate_queue, sizeof(rx_burst_task), &task);
+void rfidbts_controller::setup_gate_tag(rx_burst_task *t) {
+    t->cmd = RXB_TAG;
 }
 
-void rfidbts_controller::setup_gate_done() {
-    rx_burst_task task;
+void rfidbts_controller::setup_ungate(rx_burst_task *t, int len) {
+    t->cmd = RXB_UNGATE;
+    t->len = len;
+}
 
-    task.cmd = RXB_DONE;
-    queue_msg(d_gate_queue, sizeof(rx_burst_task), &task);
+void rfidbts_controller::setup_gate_done(rx_burst_task *t) {
+    t->cmd = RXB_DONE;
 }
 //////////// burst commands
 void rfidbts_controller::setup_query_ack_rep_burst() {
+    rx_burst_task rx_tasks[16];
     //encoder commands
     setup_on_wait(500000); //~1 sec
     setup_preamble();
     setup_query();
     setup_on(); //~100ms
     //receive gate commands
-    setup_gate( 25 + 75 + 83 + 8 * 50 + 14 * 25 + 10);     //length of query - data0, RT cal TRCal + data + 10us of buffer
-    setup_ungate(800);   //length of RN16 backscatter say 800 for now ~.8ms
-    setup_gate_done(); //search for next command, ie next delimiter
+    setup_gate(rx_tasks, 25 + 75 + 83 + 8 * 50 + 14 * 25 + 10);     //length of query - data0, RT cal TRCal + data + 10us of buffer
+    setup_gate_tag(rx_tasks + 1);
+    setup_ungate(rx_tasks + 2, 800);   //length of RN16 backscatter say 800 for now ~.8ms
+    setup_gate_done(rx_tasks + 3); //search for next command, ie next delimiter
+    d_gate_queue->insert_tail(make_task_message(sizeof(rx_burst_task), 4, rx_tasks));
 }
 
 void rfidbts_controller::setup_ack_burst(const vector<char> &RN16) {
+    rx_burst_task rx_tasks[16];
     d_mac_state = MS_EPC;
 
     setup_frame_synch();
     setup_ack(RN16);
     setup_on();
 
-    setup_gate(25 + 75 + 25 + 50 + 14 * 25 + 2 * 50);
-    setup_ungate(2800);
-    setup_gate_done();
+    setup_gate(rx_tasks, 25 + 75 + 25 + 50 + 14 * 25 + 2 * 50);
+    setup_gate_tag(rx_tasks + 1);
+    setup_ungate(rx_tasks + 2, 2800);
+    setup_gate_done(rx_tasks + 3);
+    d_gate_queue->insert_tail(make_task_message(sizeof(rx_burst_task), 4, rx_tasks));
 }
 /////////// baseband call backs
 
@@ -279,6 +280,7 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
         d_sync_queue->insert_tail(make_task_message(sizeof(symbol_sync_task), sync_msg_size, sync_task));
     }
     else {
+        cout << "No preamble found!" << endl;
         //shift one off and discard the rest
         align_msg_size = 2;
         align_task[0].cmd = PA_ALIGN_CMD;
@@ -359,6 +361,12 @@ void rfidbts_controller::bit_decode(bit_decode_task &task) {
             task.output_bit_len = 16;
             d_state = WAIT_FOR_DECODE;
             break;
+        case MS_EPC_PKT:
+            task.valid = true;
+            task.bit_offset = 0;
+            task.output_bit_len = d_epc_len;
+            d_state = WAIT_FOR_DECODE;
+            break;
         default:
             assert(0);
     };
@@ -383,12 +391,18 @@ void rfidbts_controller::decoded_message(const vector<char> &msg) {
             break;
         case MS_EPC:
             iter = msg.begin();
+            d_epc_len = 0;
             cout << "EPC Message: ";
             while(iter != msg.end()) {
                 cout << "0x" << (int) *iter << " ";
                 iter++;
             }
             cout << endl;
+            d_state = BIT_DECODE;
+            break;
+        case MS_EPC_PKT:
+            d_state = READY_DOWNLINK;
+            cout << "Decoded EPC!" << endl;
             break;
         default:
             assert(0);

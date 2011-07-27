@@ -24,6 +24,7 @@
 #ifndef INCLUDED_RFIDBTS_RECEIVE_GATE_H
 #define	INCLUDED_RFIDBTS_RECEIVE_GATE_H
 
+#include <queue>
 #include <gr_block.h>
 #include <gr_message.h>
 #include <gr_msg_queue.h>
@@ -41,16 +42,15 @@ private:
   int d_off_max;
 
   int d_counter;
-  enum State { ST_BOOTUP, ST_TXOFF, ST_TXON_MUTE, ST_TXOFF_MUTE, ST_UNMUTE, ST_COMMAND, ST_WAIT };
+  enum State { ST_BOOTUP, ST_TXOFF, ST_TXON_MUTE, ST_TXOFF_MUTE, ST_UNMUTE, ST_TAG, ST_WAIT };
   State d_state;
 
   gr_msg_queue_sptr d_cmd_queue;
+  std::queue<rfidbts_controller::rx_burst_task> d_task_queue;
   
   friend rfidbts_receive_gate_sptr rfidbts_make_receive_gate(float threshold,
                                                              int off_max);
-  void add_tag(int offset);
-  void process_cmd_queue(rfidbts_controller::rx_burst_task *task);
-  void decode_task(rfidbts_controller::rx_burst_task &task, int oo);
+  void process_cmd_queue();
 
 protected:
   rfidbts_receive_gate (float threshold,

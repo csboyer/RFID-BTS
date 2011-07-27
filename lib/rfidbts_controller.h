@@ -34,38 +34,6 @@ typedef boost::shared_ptr<rfidbts_controller> rfidbts_controller_sptr;
 rfidbts_controller_sptr rfidbts_make_controller();
 
 class rfidbts_controller {
-private:
-    enum State {READY_DOWNLINK, SET_TX_BURST, PREAMBLE_DET, SYMBOL_DET, BIT_DECODE, WAIT_FOR_DECODE};
-    enum mac_state {MS_IDLE, MS_RN16, MS_EPC};
-    mac_state d_mac_state;
-    State d_state;
-
-    gr_msg_queue_sptr d_encoder_queue;
-    gr_msg_queue_sptr d_gate_queue;
-    gr_msg_queue_sptr d_sync_queue;
-    gr_msg_queue_sptr d_align_queue;
-
-    friend rfidbts_controller_sptr rfidbts_make_controller();
-    gr_message_sptr make_task_message(size_t task_size, int num_tasks, void *buf);
-    void queue_msg(gr_msg_queue_sptr q, size_t msg_size, void *buf);
-    //encoder
-    void setup_on_wait(int len);
-    void setup_on();
-    void setup_frame_synch();
-    void setup_preamble();
-    void setup_query();
-    void setup_ack_rep();
-    void setup_end_query_rep();
-    void setup_end_ack(const std::vector<unsigned char> &RN16);
-    void setup_ack(const std::vector<char> &RN16);
-    void setup_end();
-    //gate
-    void setup_gate(int len);
-    void setup_ungate(int len);
-    void setup_gate_done();
-    //burst commands
-    void setup_query_ack_rep_burst();
-    void setup_ack_burst(const std::vector<char> &RN16);
 
 protected:
     rfidbts_controller();
@@ -77,7 +45,7 @@ public:
         int len;
         std::vector<unsigned char> *data;
     };
-    enum rx_burst_cmd {RXB_GATE, RXB_UNGATE, RXB_DONE};
+    enum rx_burst_cmd {RXB_GATE, RXB_UNGATE, RXB_TAG, RXB_DONE};
     struct rx_burst_task {
         rx_burst_cmd cmd;
         int len;
@@ -130,6 +98,41 @@ public:
     void symbol_synch(symbol_sync_task &task);
     void bit_decode(bit_decode_task &task);
     void decoded_message(const std::vector<char> &msg);
+private:
+    enum State {READY_DOWNLINK, SET_TX_BURST, PREAMBLE_DET, SYMBOL_DET, BIT_DECODE, WAIT_FOR_DECODE};
+    enum mac_state {MS_IDLE, MS_RN16, MS_EPC, MS_EPC_PKT};
+    mac_state d_mac_state;
+    State d_state;
+
+    int d_epc_len;
+
+    gr_msg_queue_sptr d_encoder_queue;
+    gr_msg_queue_sptr d_gate_queue;
+    gr_msg_queue_sptr d_sync_queue;
+    gr_msg_queue_sptr d_align_queue;
+
+    friend rfidbts_controller_sptr rfidbts_make_controller();
+    gr_message_sptr make_task_message(size_t task_size, int num_tasks, void *buf);
+    void queue_msg(gr_msg_queue_sptr q, size_t msg_size, void *buf);
+    //encoder
+    void setup_on_wait(int len);
+    void setup_on();
+    void setup_frame_synch();
+    void setup_preamble();
+    void setup_query();
+    void setup_ack_rep();
+    void setup_end_query_rep();
+    void setup_end_ack(const std::vector<unsigned char> &RN16);
+    void setup_ack(const std::vector<char> &RN16);
+    void setup_end();
+    //gate
+    void setup_gate(rx_burst_task *t, int len);
+    void setup_gate_tag(rx_burst_task *t);
+    void setup_ungate(rx_burst_task *t, int len);
+    void setup_gate_done(rx_burst_task *t);
+    //burst commands
+    void setup_query_ack_rep_burst();
+    void setup_ack_burst(const std::vector<char> &RN16);
 };
 
 #endif
