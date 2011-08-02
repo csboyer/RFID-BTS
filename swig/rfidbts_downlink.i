@@ -23,7 +23,10 @@
 #include "gnuradio.i"
 %{
 #include "rfidbts_pie_encoder.h"
+extern rfidbts_pie_encoder_sptr pie_encoder_blk;
 %}
+
+extern rfidbts_pie_encoder_sptr pie_encoder_blk;
 
 GR_SWIG_BLOCK_MAGIC(rfidbts,pie_encoder);
 rfidbts_pie_encoder_sptr rfidbts_make_pie_encoder (int samples_per_delimiter, int samples_per_tari, int samples_per_pw, int samples_per_trcal, int samples_per_data1);

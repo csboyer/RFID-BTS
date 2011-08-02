@@ -61,7 +61,7 @@ class preamble_search(gr.hier_block2):
 #mag to square
         c_to_r = gr.complex_to_mag()
 #peak detector
-        thr = 10
+        thr = 5
         look = 20
         a = 0.01
         peak_d = gr.peak_detector2_fb(thr, look, a)
@@ -73,19 +73,19 @@ class preamble_search(gr.hier_block2):
         rfidbts.cvar.rfid_mac.set_align_queue(q)
         preamble_align.set_queue(q)
 #file sinks
-        slicer_dicer_dump = gr.file_sink(gr.sizeof_gr_complex,  "search/slicer_dicer.dat")
-        ms = gr.file_sink(gr.sizeof_float, "search/resamp_0.dat")
-        ps = gr.file_sink(gr.sizeof_float, "search/peak_0.dat")
-        strobe = gr.file_sink(gr.sizeof_char, "search/strobe_0.dat")
+#slicer_dicer_dump = gr.file_sink(gr.sizeof_gr_complex,  "search/slicer_dicer.dat")
+# ms = gr.file_sink(gr.sizeof_float, "search/resamp_0.dat")
+# ps = gr.file_sink(gr.sizeof_float, "search/peak_0.dat")
+# strobe = gr.file_sink(gr.sizeof_char, "search/strobe_0.dat")
 #connect everything
         self.connect(self, preamble_align, self)
         self.connect(self, preamble_gate, corr, c_to_r, peak_d, preamble_srch)
         self.connect(c_to_r, (preamble_srch,1))
 
-        self.connect(c_to_r, ms)
-        self.connect((peak_d,0), strobe)
-        self.connect((peak_d,1), ps)
-        self.connect(preamble_align, slicer_dicer_dump)
+# self.connect(c_to_r, ms)
+# self.connect((peak_d,0), strobe)
+# self.connect((peak_d,1), ps)
+# self.connect(preamble_align, slicer_dicer_dump)
 
 ###################################
 #Top level block
@@ -96,17 +96,18 @@ class proto_transceiver(gr.hier_block2):
                                 gr.io_signature(1, 1, gr.sizeof_gr_complex),
                                 gr.io_signature(1, 1, gr.sizeof_gr_complex))
 #file sinks for debugging
-        self.agc_out = gr.file_sink(itemsize = gr.sizeof_gr_complex,
-                                    filename = "agc.dat")
+# self.agc_out = gr.file_sink(itemsize = gr.sizeof_gr_complex,
+#                                    filename = "agc.dat")
 #########################
 #uplink blocks
         q_encoder = gr.msg_queue(100)
-        self.tx_encoder = rfidbts.pie_encoder(samples_per_delimiter = 8, 
-                                              samples_per_tari = 16,
-                                              samples_per_pw = 8,
-                                              samples_per_trcal = 53,
-                                              samples_per_data1 = 32)
+        self.tx_encoder = rfidbts.pie_encoder(samples_per_delimiter = 50, #12.5 us 
+                                              samples_per_tari = 100,     #25us
+                                              samples_per_pw = 50,        #12.5 us
+                                              samples_per_trcal = 333,    #83.3 us
+                                              samples_per_data1 = 200)    #50us
         self.tx_encoder.set_encoder_queue(q_encoder)
+        rfidbts.cvar.pie_encoder_blk = self.tx_encoder
         rfidbts.cvar.rfid_mac.set_encoder_queue(q_encoder)
 ####################################
 #downlink blocks
@@ -139,7 +140,7 @@ class proto_transceiver(gr.hier_block2):
                      self.half_symbols,
                      self.decoder,
                      self.framer)
-        self.connect(self.agc, self.agc_out)
+#        self.connect(self.agc, self.agc_out)
 ########################################
     def snd_query(self):
         rfidbts.cvar.rfid_mac.issue_downlink_command()

@@ -30,8 +30,13 @@
 #include <gr_io_signature.h>
 #include <stdio.h>
 #include <iostream>
+#include <rfidbts_pie_encoder.h>
 
 using namespace std;
+
+extern rfidbts_pie_encoder_sptr pie_encoder_blk;
+
+//#define GATE_DEBUG
 
 // public constructor that takes existing message queue
 rfidbts_receive_gate_sptr
@@ -87,8 +92,9 @@ int rfidbts_receive_gate::general_work(
                     d_state = ST_TXOFF;
                 }
                 else {
-                    d_counter = d_counter - 1;
-                    ii++;
+                    m = min(d_counter, nii);
+                    d_counter = d_counter - m;
+                    ii += m;
                 }
                 break;
             case ST_TXOFF:
@@ -96,7 +102,7 @@ int rfidbts_receive_gate::general_work(
                     d_state = ST_TXON_MUTE;
                 }
                 else {
-                   ii++;
+                   ii += 10;
                 }
                 break;
             case ST_TXON_MUTE:
@@ -105,7 +111,7 @@ int rfidbts_receive_gate::general_work(
                     d_state = ST_TXOFF_MUTE;
                 }
                 else {
-                    ii++;
+                    ii += 3;
                 }
                 break;
             case ST_TXOFF_MUTE:
@@ -113,6 +119,7 @@ int rfidbts_receive_gate::general_work(
                     d_state = ST_TXOFF;
                 }
                 else if( abs(in[ii]) > d_threshold  ) {
+                    pie_encoder_blk->print_sent_samples();
                     process_cmd_queue();
                 }
                 else {
@@ -139,6 +146,7 @@ int rfidbts_receive_gate::general_work(
                 break;
             case ST_UNMUTE:
                 if(d_counter > 0) {
+                    cout << "Read counter at " << nitems_read(0) + ii << endl;
                     m = min(d_counter, min(noutput_items - oo, nii - ii));
                     memcpy(out + oo, in + ii, m * sizeof(gr_complex));
                     d_counter = d_counter - m;
@@ -160,7 +168,7 @@ int rfidbts_receive_gate::general_work(
     }
 
 work_exit:
-    consume_each(ii);
+    consume_each(min(ii, nii));
     return oo;
 }
 
@@ -188,19 +196,25 @@ void rfidbts_receive_gate::process_cmd_queue() {
         case rfidbts_controller::RXB_GATE:
             d_counter = task_buf[0].len;
             d_state = ST_WAIT;
+#ifdef GATE_DEBUG
             cout << "Gate received RXB_GATE" << endl;
+#endif
             break;
         case rfidbts_controller::RXB_UNGATE:
             d_counter = task_buf[0].len;
             d_state = ST_UNMUTE;
+#ifdef GATE_DEBUG
             cout << "Gate received RXB_UNGATE" << endl;
+#endif
             break;
         case rfidbts_controller::RXB_TAG:
             d_state = ST_TAG;
             break;
         case rfidbts_controller::RXB_DONE:
             d_state = ST_TXOFF;
+#ifdef GATE_DEBUG
             cout << "Gate received RXB_DONE" << endl;
+#endif
             break;
         default:
             assert(0);

@@ -35,7 +35,7 @@
 #include <cstdio>
 #include <cfloat>
 
-#define GARDNER_DEBUG
+//#define ELG_DEBUG
 
 
 #include <iostream>
@@ -136,7 +136,7 @@ rfidbts_elg_timing_cc::gen_output_error(const gr_complex *in) {
     //calculate error
     error = real(d_s_0T) * (real(d_s_late) - real(d_s_early)) +
                  imag(d_s_0T) * (imag(d_s_late) - imag(d_s_early));
-#ifdef GARDNER_DEBUG
+#ifdef ELG_DEBUG
     cout << "Interp and Calc timing error:" << error << " Cnt:" << debug_count << endl;
     debug_count++;
 #endif
@@ -161,7 +161,7 @@ rfidbts_elg_timing_cc::update_dco() {
     d_late_sample = (int) floor(d_late_po);
     d_late_po = d_late_po - d_late_sample;
 
-#ifdef GARDNER_DEBUG
+#ifdef ELG_DEBUG
     cout << "Update DCO: " <<  d_spb << endl;
 #endif
     return sample_inc;
@@ -174,7 +174,7 @@ rfidbts_elg_timing_cc::update_loopfilter(float timing_error) {
     d_spb = d_spb + d_dco_gain * d_loopfilter;
     //loop filter integrator has a delay in it
     d_integrator_1 = d_integrator_1 + d_order_1_gain * d_order_2_gain * timing_error;
-#ifdef GARDNER_DEBUG
+#ifdef ELG_DEBUG
     cout << "Loop filter: " << d_loopfilter << endl;
 #endif
 }
@@ -266,14 +266,18 @@ int rfidbts_elg_timing_cc::search_tag(int offset, int input_items) {
         sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
         assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
         fetch_and_process_task();
+#ifdef ELG_DEBUG
         cout << "ELG found tag: " << gr_tags::get_nitems(tags[0]) << endl;
+#endif
         count = gr_tags::get_nitems(tags[0]) - nitems_read(0);
         //re init po and spb
         reset_elg_values();
     }
     else {
         count = input_items - offset;
+#ifdef ELG_DEBUG
         cout << "ELG tag not found: " << nitems_read(0) + offset << " To " << nitems_read(0) + input_items << endl;
+#endif
     }
 
     return count;
@@ -303,7 +307,9 @@ void rfidbts_elg_timing_cc::fetch_and_process_task() {
 
     switch(task_buf[0].cmd) {
         case rfidbts_controller::SYM_TRACK_CMD:
+#ifdef ELG_DEBUG
             cout << "ELG received SYM track" << endl;
+#endif
             d_symbol_counter = task_buf[0].output_symbol_len;
             if(task_buf[0].match_filter_offset > 0) {
                 d_state = SAMPLE_DELAY;
@@ -314,7 +320,9 @@ void rfidbts_elg_timing_cc::fetch_and_process_task() {
             }
             break;
         case rfidbts_controller::SYM_DONE_CMD:
+#ifdef ELG_DEBUG
             cout << "ELG received end task" << endl;
+#endif
             d_state = INIT;
             break;
         default:

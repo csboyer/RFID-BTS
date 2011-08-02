@@ -87,7 +87,7 @@ class rfidbts_pie_encoder : public gr_block
 
  public:
   ~rfidbts_pie_encoder();
-  
+  void print_sent_samples();
   void set_encoder_queue(gr_msg_queue_sptr q);
   int general_work (int noutput_items,
       gr_vector_int &ninput_items,

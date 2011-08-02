@@ -1,9 +1,13 @@
 #include <rfidbts_controller.h>
+#include <rfidbts_pie_encoder.h>
 #include <iostream>
 #include <string.h>
 
+//#define CONTROLLER_DEBUG
+
 using namespace std;
 
+rfidbts_pie_encoder_sptr pie_encoder_blk;
 rfidbts_controller_sptr rfid_mac = rfidbts_make_controller();
 
 rfidbts_controller_sptr rfidbts_make_controller() {
@@ -214,13 +218,17 @@ gr_message_sptr rfidbts_controller::make_task_message(size_t task_size, int num_
 void rfidbts_controller::preamble_gate_callback(preamble_gate_task &task) {
     //number of samples to pass through to the preamble srcher
     task.len = 500;
+#ifdef CONTROLLER_DEBUG
     cout << "Gate callback passing samples: " << task.len << endl;
+#endif
 }
 
 void rfidbts_controller::preamble_srch_callback(preamble_srch_task &task) {
     //number of samples the srcher should expect
     task.len = 500;
+#ifdef CONTROLLER_DEBUG
     cout << "Srch callback passing samples: " << task.len << endl;
+#endif
 }
 
 void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
@@ -233,7 +241,9 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
     if(task.srch_success) {
         switch(d_mac_state) {
             case MS_RN16:
+#ifdef CONTROLLER_DEBUG
                 cout << "Issuing RN16 tasks; preamble found at: " << task.len << endl;
+#endif
                 align_msg_size = 5;
                 //shift to start of frame
                 align_task[0].cmd = PA_ALIGN_CMD;
@@ -255,7 +265,9 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
                 sync_task[1].cmd = SYM_DONE_CMD;
                 break;
             case MS_EPC:
+#ifdef CONTROLLER_DEBUG
                 cout << "Issuing EPC tasks" << endl;
+#endif
                 align_msg_size = 4;
                 //shift to start of frame
                 align_task[0].cmd = PA_ALIGN_CMD;

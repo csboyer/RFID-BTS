@@ -39,6 +39,8 @@
 #include <string.h>
 #include <assert.h>
 
+//#define PIE_DEBUG
+
 using namespace std;
 // public constructor that returns a shared_ptr
 
@@ -215,11 +217,13 @@ int rfidbts_pie_encoder::general_work(
         gr_vector_void_star &output_items)
 {
     int nn = 0;
+    int ni = noutput_items;
     int m;
     gr_complex *output = (gr_complex*) output_items[0];
     rfidbts_controller::tx_burst_task task;
+    ni = min(64, noutput_items);
     
-    while(nn < noutput_items) {
+    while(nn < ni) {
         switch(d_state) {
             case OFF_IDLE:
                 if(!d_cmd_queue->empty_p()) {
@@ -228,9 +232,9 @@ int rfidbts_pie_encoder::general_work(
                 }
                 else {
                     fill(output + nn,
-                         output + noutput_items,
+                         output + ni,
                          d_sample_0);
-                    nn = noutput_items;
+                    nn = ni;
                 }
                 break;
             case ON_IDLE:
@@ -240,16 +244,16 @@ int rfidbts_pie_encoder::general_work(
                 }
                 else {
                     fill(output + nn,
-                         output + noutput_items,
+                         output + ni,
                          d_sample_1);
-                    nn = noutput_items;
+                    nn = ni;
                 }
                 break;
             case ON_TIMED:
                 if(d_counter > 0) {
-                    m = min(d_counter, noutput_items - nn);
+                    m = min(d_counter, ni - nn);
                     fill(output + nn,
-                         output + m,
+                         output + m + nn,
                          d_sample_1);
                     nn += m;
                     d_counter = d_counter - m;
@@ -260,7 +264,7 @@ int rfidbts_pie_encoder::general_work(
                 break;
             case SEND_SAMPLES:
                 if(d_counter < d_outgoing_frame.size()) {
-                    m = min((int) d_outgoing_frame.size() - d_counter, noutput_items - nn);
+                    m = min((int) d_outgoing_frame.size() - d_counter, ni - nn);
                     copy(d_outgoing_frame.begin() + d_counter,
                          d_outgoing_frame.begin() + d_counter + m,
                          output + nn);
@@ -268,6 +272,7 @@ int rfidbts_pie_encoder::general_work(
                     d_counter += m;
                 }
                 else {
+                    cout << "PIE Blk: PIE samples written: " << nitems_written(0) + nn << endl;
                     d_state = GET_TASK;
                 }
                 break;
@@ -290,6 +295,10 @@ work_exit:
     return nn;
 }
 
+void rfidbts_pie_encoder::print_sent_samples() {
+    cout << "Outside blk: PIE samples written: " << nitems_written(0) << endl;
+}
+
 void rfidbts_pie_encoder::get_task(rfidbts_controller::tx_burst_task *task) {
     gr_message_sptr msg;
 
@@ -301,36 +310,48 @@ void rfidbts_pie_encoder::decode_task(rfidbts_controller::tx_burst_task *task) {
 
     switch(task->cmd) {
         case rfidbts_controller::TURN_ON_TIMED:
+#ifdef PIE_DEBUG
             cout << "pie_encoder received TURN_ON_TIMED task" << endl;
+#endif
             d_counter = task->len;
             d_state = ON_TIMED;
             break;
         case rfidbts_controller::TURN_ON:
+#ifdef PIE_DEBUG
             cout << "pie_encoder received TURN_ON task" << endl;
+#endif
             d_state = ON_IDLE;
             break;
         case rfidbts_controller::PREAMBLE:
+#ifdef PIE_DEBUG
             cout << "pie_encoder received PREAMBLE task" << endl;
+#endif
             d_outgoing_frame.assign(d_preamble.begin(), d_preamble.end());
             d_state = SEND_SAMPLES;
             d_counter = 0;
             break;
         case rfidbts_controller::FRAME_SYNCH:
+#ifdef PIE_DEBUG
             cout << "pie_encoder received FRAME_SYNCH task" << endl;
+#endif
             d_outgoing_frame.resize(d_framesync.size());
             d_outgoing_frame.assign(d_framesync.begin(), d_framesync.end());
             d_state = SEND_SAMPLES;
             d_counter = 0;
             break;
         case rfidbts_controller::DATA_BITS:
+#ifdef PIE_DEBUG
             cout << "pie_encoder received DATA_BITS task" << endl;
+#endif
             bit_to_pie(task->data, d_outgoing_frame);
             delete task->data;
             d_state = SEND_SAMPLES;
             d_counter = 0;
             break;
         case rfidbts_controller::TURN_OFF:
+#ifdef PIE_DEBUG
             cout << "pie_encoder received TURN_OFF task" << endl;
+#endif
             d_state = OFF_IDLE;
             break;
         default:

@@ -32,6 +32,8 @@
 #include <gr_message.h>
 #include <gr_tag_info.h>
 
+//#define PREAMBLE_DEBUG
+
 extern rfidbts_controller_sptr rfid_mac;
 
 using namespace std;
@@ -263,7 +265,9 @@ rfidbts_preamble_align::general_work (int noutput_items,
                                   nitems_read(0) + (uint64_t) ni,
                                   pmt::pmt_string_to_symbol("rfid_burst"));
                 if(tags.begin() != tags.end()) {
+#ifdef PREAMBLE_DEBUG
                     cout << "Preamble align found tag" << endl;
+#endif
                     sort(tags.begin(), tags.end(), gr_tags::nitems_compare);
                     assert(pmt::pmt_is_true(gr_tags::get_value(tags[0])));
                     ii = gr_tags::get_nitems(tags[0]) - (uint64_t) nitems_read(0);
@@ -307,7 +311,9 @@ rfidbts_preamble_align::general_work (int noutput_items,
                 v = pmt::PMT_T;
                 i = pmt::pmt_string_to_symbol(str.str());
                 add_item_tag(0, nitems_written(0) + oo, k, v, i);
+#ifdef PREAMBLE_DEBUG
                 cout << "Align tagging sample: " << nitems_written(0) + oo << endl;
+#endif
                 //copy the output
                 out[oo] = in[ii];
                 ii++;
@@ -330,7 +336,9 @@ void rfidbts_preamble_align::fetch_and_process_task() {
     rfidbts_controller::preamble_align_task buf[16];
     
     if(d_task_queue.empty()) {
+#ifdef PREAMBLE_DEBUG
         cout << "Align task queue is empty, getting more tasks" << endl;
+#endif
         msg = d_queue->delete_head();
         memcpy(&size, msg->msg(), sizeof(int));
         assert(size < 16);
@@ -341,28 +349,38 @@ void rfidbts_preamble_align::fetch_and_process_task() {
         }
     }
     else {
+#ifdef PREAMBLE_DEBUG
         cout << "Align task queue not empty." << endl;
+#endif
         buf[0] = d_task_queue.front();
         d_task_queue.pop();
     }
 
     switch(buf[0].cmd) {
         case rfidbts_controller::PA_ALIGN_CMD:
+#ifdef PREAMBLE_DEBUG
             cout << "PA_ALIGN task: " << buf[0].len << endl;
+#endif
             d_state = PA_ALIGN;
             d_counter = buf[0].len;
             break;
         case rfidbts_controller::PA_TAG_CMD:
+#ifdef PREAMBLE_DEBUG
             cout << "PA_TAG task " << endl;
+#endif
             d_state = PA_TAG;
             break;
         case rfidbts_controller::PA_UNGATE_CMD:
+#ifdef PREAMBLE_DEBUG
             cout << "PA_UNGATE task: " << buf[0].len << endl;
+#endif
             d_state = PA_UNGATE;
             d_counter = buf[0].len;
             break;
         case rfidbts_controller::PA_DONE_CMD:
+#ifdef PREAMBLE_DEBUG
             cout << "PA_DONE task " << endl;
+#endif
             d_state = PA_TAG_SEARCH;
             break;
         default:

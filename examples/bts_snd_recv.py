@@ -34,13 +34,14 @@ class app_top_block(gr.top_block):
                     repeat = False)
             self.connect(self.f_src, self.src)
         else:
+#self.src = gr.fir_filter_ccf(8, gr.firdes.low_pass(1.0, 1.0, 1.0/8.0, 1.0/8.0))
             self.bb_sink = gr.file_sink(
                     itemsize = gr.sizeof_gr_complex,
                     filename = 'bb_dump.dat')
             self.src = self.setup_src()
             self.connect(
-                    self.src,
-                    self.bb_sink)
+                   self.src,
+                   self.bb_sink)
 
 
         if xmtr_hack:
@@ -56,12 +57,12 @@ class app_top_block(gr.top_block):
 
         else:
             self.snk = self.setup_snk()
-            self.fsnk = gr.file_sink(
-                    itemsize = gr.sizeof_gr_complex,
-                    filename = self.options.test_snk)
-            self.connect(
-                    self.transceiver,
-                    self.fsnk)
+#            self.fsnk = gr.file_sink(
+#                    itemsize = gr.sizeof_gr_complex,
+#                    filename = self.options.test_snk)
+#           self.connect(
+#                    self.transceiver,
+#                    self.fsnk)
         
         self.connect(
                 self.src, 
@@ -79,7 +80,7 @@ class app_top_block(gr.top_block):
         parser.add_option("", "--test-src", type="string", default="bb_dump.dat", help="Input file, [default=%default]")
         parser.add_option("", "--test-snk", type="string", default="readout.dat", help="Output file, [default=%default]")
         parser.add_option("", "--rx-samp-rate", type="eng_float", default=1e6, help="RX sample rate for UHD, [default=%default]")
-        parser.add_option("", "--tx-samp-rate", type="eng_float", default=640e3, help="TX sample rate for UHD, [default=%default]")
+        parser.add_option("", "--tx-samp-rate", type="eng_float", default=4e6, help="TX sample rate for UHD, [default=%default]")
         parser.add_option("", "--frequency", type="eng_float", default=915e6, help="TX/RX frequency, [default=%default]")
         parser.add_option("", "--rx-gain", type="eng_float", default=60, help="Gain for RX and TX, [default=%default]")
         parser.add_option("", "--tx-gain", type="eng_float", default=-1, help="Gain for RX and TX, [default=%default]")
