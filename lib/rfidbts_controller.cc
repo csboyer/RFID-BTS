@@ -173,32 +173,42 @@ void rfidbts_controller::setup_gate_done(rx_burst_task *t) {
 //////////// burst commands
 void rfidbts_controller::setup_query_ack_rep_burst() {
     rx_burst_task rx_tasks[16];
+    int num_tasks = 0;
     //encoder commands
     setup_on_wait(500000); //~1 sec
     setup_preamble();
     setup_query();
     setup_on(); //~100ms
     //receive gate commands
-    setup_gate(rx_tasks, 25 + 75 + 83 + 8 * 50 + 14 * 25 + 10);     //length of query - data0, RT cal TRCal + data + 10us of buffer
-    setup_gate_tag(rx_tasks + 1);
-    setup_ungate(rx_tasks + 2, 800);   //length of RN16 backscatter say 800 for now ~.8ms
-    setup_gate_done(rx_tasks + 3); //search for next command, ie next delimiter
-    d_gate_queue->insert_tail(make_task_message(sizeof(rx_burst_task), 4, rx_tasks));
+    setup_gate(rx_tasks + num_tasks, 25 + 75 + 83 + 8 * 50 + 14 * 25 + 10);     //length of query - data0, RT cal TRCal + data + 10us of buffer
+    num_tasks++;
+    setup_gate_tag(rx_tasks + num_tasks);
+    num_tasks++;
+    setup_ungate(rx_tasks + num_tasks, 800);   //length of RN16 backscatter say 800 for now ~.8ms
+    num_tasks++;
+    setup_gate_done(rx_tasks + num_tasks); //search for next command, ie next delimiter
+    num_tasks++;
+    d_gate_queue->insert_tail(make_task_message(sizeof(rx_burst_task), num_tasks, rx_tasks));
 }
 
 void rfidbts_controller::setup_ack_burst(const vector<char> &RN16) {
     rx_burst_task rx_tasks[16];
+    int num_tasks = 0;
     d_mac_state = MS_EPC;
 
     setup_frame_synch();
     setup_ack(RN16);
     setup_on();
 
-    setup_gate(rx_tasks, 25 + 75 + 25 + 50 + 14 * 25 + 2 * 50);
-    setup_gate_tag(rx_tasks + 1);
-    setup_ungate(rx_tasks + 2, 2800);
-    setup_gate_done(rx_tasks + 3);
-    d_gate_queue->insert_tail(make_task_message(sizeof(rx_burst_task), 4, rx_tasks));
+    setup_gate(rx_tasks + num_tasks, 25 + 75 + 25 + 50 + 14 * 25 + 2 * 50);
+    num_tasks++;
+    setup_gate_tag(rx_tasks + num_tasks);
+    num_tasks++;
+    setup_ungate(rx_tasks + num_tasks, 800);
+    num_tasks++;
+    //setup_gate_done(rx_tasks + num_tasks);
+    //num_tasks++;
+    d_gate_queue->insert_tail(make_task_message(sizeof(rx_burst_task), num_tasks, rx_tasks));
 }
 /////////// baseband call backs
 
@@ -385,6 +395,10 @@ void rfidbts_controller::bit_decode(bit_decode_task &task) {
 }
 
 void rfidbts_controller::decoded_message(const vector<char> &msg) {
+    rx_burst_task rx_tasks[2];
+    preamble_align_task align_task[2];
+    symbol_sync_task sync_task[2];
+    int ii;
     vector<char>::const_iterator iter;
 
     assert(d_state == WAIT_FOR_DECODE);
@@ -393,31 +407,71 @@ void rfidbts_controller::decoded_message(const vector<char> &msg) {
         case MS_RN16:
             setup_ack_burst(msg);
             iter = msg.begin();
-            cout << "RN16 Message: ";
+            cout << "RN16 Message: 0x";
             while(iter != msg.end()) {
-                cout << "0x" << (int) *iter << " ";
-                iter++;
+                cout << bit_to_string(iter);
+                iter += 4;
             }
             cout << endl;
             d_state = PREAMBLE_DET;
             break;
         case MS_EPC:
+            //always CRC 16
+            d_epc_len = 16;
+            for(ii = 0; ii < 5; ii++) {
+                d_epc_len += msg[ii] * (0x10 >> ii) * 16;
+            }
+            //print out message so far PC header
+            cout << "PC header: 0x";
             iter = msg.begin();
-            d_epc_len = 0;
-            cout << "EPC Message: ";
             while(iter != msg.end()) {
-                cout << "0x" << (int) *iter << " ";
-                iter++;
+                cout << bit_to_string(iter);
+                iter += 4;
             }
             cout << endl;
             d_state = BIT_DECODE;
+            d_mac_state = MS_EPC_PKT;
+            //gate tasks
+            setup_ungate(rx_tasks + 0, d_epc_len * 16 + 40);
+            setup_gate_done(rx_tasks + 1);
+            d_gate_queue->insert_tail(make_task_message(sizeof(rx_burst_task), 2, rx_tasks));
+            //align tasks
+            align_task[0].cmd = PA_UNGATE_CMD;
+            align_task[0].len = d_epc_len * 16 + 40;
+            align_task[1].cmd = PA_DONE_CMD;
+            d_align_queue->insert_tail(make_task_message(sizeof(preamble_align_task), 2, align_task));
+            //sync tasks
+            sync_task[0].cmd = SYM_TRACK_CMD;
+            sync_task[0].output_symbol_len = d_epc_len * 2;
+            sync_task[0].match_filter_offset = 0;
+            sync_task[1].cmd = SYM_DONE_CMD;
+            d_sync_queue->insert_tail(make_task_message(sizeof(symbol_sync_task), 2, sync_task));
             break;
         case MS_EPC_PKT:
             d_state = READY_DOWNLINK;
-            cout << "Decoded EPC!" << endl;
+            cout << "Decoded EPC!: 0x";
+            iter = msg.begin();
+            while(iter != (msg.end() - 16)) {
+                cout << bit_to_string(iter);
+                iter += 4;
+            }
+            cout << endl;
+            cout << "CRC: 0x";
+            while(iter != msg.end()) {
+                cout << bit_to_string(iter);
+                iter += 4;
+            }
+            cout << endl;
             break;
         default:
             assert(0);
     };
 }
 
+string rfidbts_controller::bit_to_string(vector<char>::const_iterator ii) {
+    int i;
+    stringstream ss;
+    i = ii[0] * 8 + ii[1] * 4 + ii[2] * 2 + ii[3];
+    ss << hex << i;
+    return ss.str();
+}

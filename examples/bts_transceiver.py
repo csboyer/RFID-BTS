@@ -22,14 +22,14 @@ class symbol_mapper(gr.hier_block2):
         self.mf = gr.fir_filter_ccf(1, half_sym_taps)
         self.timing_recovery = rfidbts.elg_timing_cc(phase_offset = 0,
                                                      samples_per_symbol = 8,
-                                                     dco_gain = 0.04,
-                                                     order_1_gain = 0.1,
-                                                     order_2_gain = 0.01)
+                                                     dco_gain = 0.1,
+                                                     order_1_gain = 0.01,
+                                                     order_2_gain = 0.001)
         q = gr.msg_queue(1000)
         self.timing_recovery.set_queue(q)
         rfidbts.cvar.rfid_mac.set_sync_queue(q)
         timing_s = gr.file_sink(gr.sizeof_gr_complex, "timing/symbols.dat")
-        self.connect(self.timing_recovery, timing_s)
+        self.connect(self.mf, timing_s)
         self.connect(self, self.mf, self.timing_recovery, self)
 ###########################################
 #Searches for the preamble from a sample stream
@@ -73,19 +73,19 @@ class preamble_search(gr.hier_block2):
         rfidbts.cvar.rfid_mac.set_align_queue(q)
         preamble_align.set_queue(q)
 #file sinks
-#slicer_dicer_dump = gr.file_sink(gr.sizeof_gr_complex,  "search/slicer_dicer.dat")
-# ms = gr.file_sink(gr.sizeof_float, "search/resamp_0.dat")
-# ps = gr.file_sink(gr.sizeof_float, "search/peak_0.dat")
-# strobe = gr.file_sink(gr.sizeof_char, "search/strobe_0.dat")
+        slicer_dicer_dump = gr.file_sink(gr.sizeof_gr_complex,  "search/slicer_dicer.dat")
+        ms = gr.file_sink(gr.sizeof_float, "search/resamp_0.dat")
+        ps = gr.file_sink(gr.sizeof_float, "search/peak_0.dat")
+        strobe = gr.file_sink(gr.sizeof_char, "search/strobe_0.dat")
 #connect everything
         self.connect(self, preamble_align, self)
         self.connect(self, preamble_gate, corr, c_to_r, peak_d, preamble_srch)
         self.connect(c_to_r, (preamble_srch,1))
 
-# self.connect(c_to_r, ms)
-# self.connect((peak_d,0), strobe)
-# self.connect((peak_d,1), ps)
-# self.connect(preamble_align, slicer_dicer_dump)
+        self.connect(c_to_r, ms)
+        self.connect((peak_d,0), strobe)
+        self.connect((peak_d,1), ps)
+        self.connect(preamble_align, slicer_dicer_dump)
 
 ###################################
 #Top level block
@@ -118,8 +118,8 @@ class proto_transceiver(gr.hier_block2):
         rfidbts.cvar.rfid_mac.set_gate_queue(q_blocker)
         self.blocker = gr.dc_blocker_cc(D = 5, 
                                         long_form = True)
-        self.agc = gr.agc_cc(rate = 5e-1, 
-                             reference = 0.707, 
+        self.agc = gr.agc_cc(rate = 0.5e-1, 
+                             reference = 0.5, 
                              gain = 100.0,
                              max_gain = 1000.0)
         self.search = preamble_search()

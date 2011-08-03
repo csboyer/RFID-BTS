@@ -133,6 +133,8 @@ private:
     //burst commands
     void setup_query_ack_rep_burst();
     void setup_ack_burst(const std::vector<char> &RN16);
+
+    std::string bit_to_string(const std::vector<char>::const_iterator ii);
 };
 
 #endif
