@@ -221,7 +221,7 @@ int rfidbts_pie_encoder::general_work(
     int m;
     gr_complex *output = (gr_complex*) output_items[0];
     rfidbts_controller::tx_burst_task task;
-    ni = min(64, noutput_items);
+    ni = min(512, noutput_items);
     
     while(nn < ni) {
         switch(d_state) {

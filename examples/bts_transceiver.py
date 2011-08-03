@@ -96,8 +96,8 @@ class proto_transceiver(gr.hier_block2):
                                 gr.io_signature(1, 1, gr.sizeof_gr_complex),
                                 gr.io_signature(1, 1, gr.sizeof_gr_complex))
 #file sinks for debugging
-# self.agc_out = gr.file_sink(itemsize = gr.sizeof_gr_complex,
-#                                    filename = "agc.dat")
+        self.agc_out = gr.file_sink(itemsize = gr.sizeof_gr_complex,
+                                    filename = "agc.dat")
 #########################
 #uplink blocks
         q_encoder = gr.msg_queue(100)
@@ -140,7 +140,7 @@ class proto_transceiver(gr.hier_block2):
                      self.half_symbols,
                      self.decoder,
                      self.framer)
-#        self.connect(self.agc, self.agc_out)
+        self.connect(self.agc, self.agc_out)
 ########################################
     def snd_query(self):
         rfidbts.cvar.rfid_mac.issue_downlink_command()

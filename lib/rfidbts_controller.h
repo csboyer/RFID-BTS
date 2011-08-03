@@ -29,6 +29,8 @@
 #include <gr_msg_queue.h>
 #include <gr_message.h>
 
+#define INIT_OFFSET 0
+
 class rfidbts_controller;
 typedef boost::shared_ptr<rfidbts_controller> rfidbts_controller_sptr;
 rfidbts_controller_sptr rfidbts_make_controller();

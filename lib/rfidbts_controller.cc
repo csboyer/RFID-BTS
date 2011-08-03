@@ -257,7 +257,7 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
                 align_msg_size = 5;
                 //shift to start of frame
                 align_task[0].cmd = PA_ALIGN_CMD;
-                align_task[0].len = task.len - (12 + 7) * 8;
+                align_task[0].len = task.len - (12 + 7) * 8 + INIT_OFFSET;
                 align_task[1].cmd = PA_UNGATE_CMD;
                 align_task[1].len = 8;
                 //tag the start of frame
@@ -281,7 +281,7 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
                 align_msg_size = 4;
                 //shift to start of frame
                 align_task[0].cmd = PA_ALIGN_CMD;
-                align_task[0].len = task.len - (12 + 7) * 8;
+                align_task[0].len = task.len - (12 + 7) * 8 + INIT_OFFSET;
                 align_task[1].cmd = PA_UNGATE_CMD;
                 align_task[1].len = 8;
                 //tag the start of frame
@@ -309,6 +309,8 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
         align_task[0].len = 1;
         align_task[1].cmd = PA_DONE_CMD;
         d_state = READY_DOWNLINK;
+        d_mac_state = MS_IDLE;
+        issue_downlink_command();
     }
 
     d_align_queue->insert_tail(make_task_message(sizeof(preamble_align_task), align_msg_size, align_task));
@@ -462,6 +464,9 @@ void rfidbts_controller::decoded_message(const vector<char> &msg) {
                 iter += 4;
             }
             cout << endl;
+            //repeat!
+            d_mac_state = MS_IDLE;
+            issue_downlink_command();
             break;
         default:
             assert(0);

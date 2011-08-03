@@ -91,12 +91,28 @@ rfidbts_preamble_gate::general_work (int noutput_items,
                     rfid_mac->preamble_gate_callback(task);
                     //call to controller block
                     d_counter = task.len;
-                    d_state = PG_UNGATE;
+                    ii += INIT_OFFSET;
+                    if(ii > ni) {
+                        d_timer = ni - ii;
+                        d_state = PG_TIMER;
+                    } 
+                    else {
+                        d_state = PG_UNGATE;
+                    }
                 }
                 else {
                     ii = ni;
                 }
                 break;
+            case PG_TIMER:
+                if(d_timer > 0) {
+                    m = min(ni - ii, d_timer);
+                    ii += m;
+                    d_timer = d_timer - m;
+                }
+                else {
+                    d_state = PG_UNGATE;
+                }
             case PG_UNGATE:
                 if(d_counter > 0) {
                     m = min(ni - ii, min(d_counter, noutput_items - oo));

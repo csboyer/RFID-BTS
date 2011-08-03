@@ -49,11 +49,12 @@ public:
 protected:
   rfidbts_preamble_gate();
 private:
-  enum state {PG_TAG_SEARCH, PG_UNGATE};
+  enum state {PG_TAG_SEARCH, PG_TIMER, PG_UNGATE};
   friend rfidbts_preamble_gate_sptr rfidbts_make_preamble_gate();
 
   state d_state;
   int d_counter;
+  int d_timer;
 
   int search_for_tag(int offset);
 };
