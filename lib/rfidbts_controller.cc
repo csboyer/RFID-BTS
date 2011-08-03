@@ -175,7 +175,7 @@ void rfidbts_controller::setup_query_ack_rep_burst() {
     rx_burst_task rx_tasks[16];
     int num_tasks = 0;
     //encoder commands
-    setup_on_wait(500000); //~1 sec
+    setup_on_wait(2*500000); //~1 sec
     setup_preamble();
     setup_query();
     setup_on(); //~100ms
