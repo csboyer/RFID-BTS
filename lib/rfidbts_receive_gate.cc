@@ -119,7 +119,7 @@ int rfidbts_receive_gate::general_work(
                     d_state = ST_TXOFF;
                 }
                 else if( abs(in[ii]) > d_threshold  ) {
-                    pie_encoder_blk->print_sent_samples();
+                    //pie_encoder_blk->print_sent_samples();
                     process_cmd_queue();
                 }
                 else {
@@ -146,7 +146,7 @@ int rfidbts_receive_gate::general_work(
                 break;
             case ST_UNMUTE:
                 if(d_counter > 0) {
-                    cout << "Read counter at " << nitems_read(0) + ii << endl;
+                    //cout << "Read counter at " << nitems_read(0) + ii << endl;
                     m = min(d_counter, min(noutput_items - oo, nii - ii));
                     memcpy(out + oo, in + ii, m * sizeof(gr_complex));
                     d_counter = d_counter - m;

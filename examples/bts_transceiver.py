@@ -22,14 +22,14 @@ class symbol_mapper(gr.hier_block2):
         self.mf = gr.fir_filter_ccf(1, half_sym_taps)
         self.timing_recovery = rfidbts.elg_timing_cc(phase_offset = 0,
                                                      samples_per_symbol = 8,
-                                                     dco_gain = 0.1,
+                                                     dco_gain = 0.3,
                                                      order_1_gain = 0.01,
-                                                     order_2_gain = 0.001)
+                                                     order_2_gain = 0.0001)
         q = gr.msg_queue(1000)
         self.timing_recovery.set_queue(q)
         rfidbts.cvar.rfid_mac.set_sync_queue(q)
         timing_s = gr.file_sink(gr.sizeof_gr_complex, "timing/symbols.dat")
-        self.connect(self.mf, timing_s)
+        self.connect(self.timing_recovery, timing_s)
         self.connect(self, self.mf, self.timing_recovery, self)
 ###########################################
 #Searches for the preamble from a sample stream
@@ -118,7 +118,7 @@ class proto_transceiver(gr.hier_block2):
         rfidbts.cvar.rfid_mac.set_gate_queue(q_blocker)
         self.blocker = gr.dc_blocker_cc(D = 5, 
                                         long_form = True)
-        self.agc = gr.agc_cc(rate = 0.5e-1, 
+        self.agc = gr.agc_cc(rate = 22e-1, 
                              reference = 0.5, 
                              gain = 100.0,
                              max_gain = 1000.0)

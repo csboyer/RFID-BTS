@@ -35,7 +35,7 @@
 #include <cstdio>
 #include <cfloat>
 
-#define ELG_DEBUG
+//#define ELG_DEBUG
 
 
 #include <iostream>

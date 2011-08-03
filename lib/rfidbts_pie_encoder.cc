@@ -272,7 +272,7 @@ int rfidbts_pie_encoder::general_work(
                     d_counter += m;
                 }
                 else {
-                    cout << "PIE Blk: PIE samples written: " << nitems_written(0) + nn << endl;
+                    //cout << "PIE Blk: PIE samples written: " << nitems_written(0) + nn << endl;
                     d_state = GET_TASK;
                 }
                 break;
