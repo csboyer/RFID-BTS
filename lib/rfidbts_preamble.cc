@@ -79,6 +79,7 @@ rfidbts_preamble_gate::general_work (int noutput_items,
     while(ii < ni && oo < noutput_items) {
         switch(d_state) {
             case PG_TAG_SEARCH:
+                //search for tag. If found, start preamble srch. If not keep searching for tag.
                 tags.clear();
                 get_tags_in_range(tags, 0, 
                                   nitems_read(0) + (uint64_t) ii, 
@@ -91,10 +92,13 @@ rfidbts_preamble_gate::general_work (int noutput_items,
                     rfid_mac->preamble_gate_callback(task);
                     //call to controller block
                     d_counter = task.len;
+                    assert(d_counter > 0);
                     ii += INIT_OFFSET;
+                    //check to see if overflow
                     if(ii > ni) {
                         d_timer = ni - ii;
                         d_state = PG_TIMER;
+                        ii = ni;
                     } 
                     else {
                         d_state = PG_UNGATE;
@@ -123,7 +127,7 @@ rfidbts_preamble_gate::general_work (int noutput_items,
                 }
                 else {
                     d_state = PG_TAG_SEARCH;
-                    //bail fast!
+                    //bail fast! force a context switch!
                     goto work_exit;
                 }
                 break;
@@ -186,6 +190,9 @@ rfidbts_preamble_srch::work (int noutput_items,
                 break;
             case PS_STROBE_SEARCH:
                 assert(d_counter > 0);
+#ifdef PREAMBLE_DEBUG
+                cout << "srch counter" << d_counter << endl;
+#endif
                 m = min(d_counter, noutput_items - ii);
                 if(find_strobe(in + ii, in + ii + m, &offset)) {
                     //queue up commands
@@ -200,7 +207,7 @@ rfidbts_preamble_srch::work (int noutput_items,
                 }
                 d_counter = d_counter - m;
                 ii += m;
-                if(d_counter == 0) {
+                if((d_counter-50) <= 0) {
                     //send failure message
                     task.srch_success = false;
                     rfid_mac->preamble_align_setup(task);
@@ -217,7 +224,6 @@ work_exit:
 
 bool rfidbts_preamble_srch::find_strobe(char *start, char *end, int *offset) {
     int ii = 0;
-
     while(start != end && *start == 0) {
         start++;
         ii++;
@@ -356,6 +362,9 @@ void rfidbts_preamble_align::fetch_and_process_task() {
         cout << "Align task queue is empty, getting more tasks" << endl;
 #endif
         msg = d_queue->delete_head();
+#ifdef PREAMBLE_DEBUG
+        cout << "Align task queue finished" << endl;
+#endif
         memcpy(&size, msg->msg(), sizeof(int));
         assert(size < 16);
         memcpy(buf, msg->msg() + sizeof(int), sizeof(rfidbts_controller::preamble_align_task) * size);

@@ -137,8 +137,7 @@ rfidbts_elg_timing_cc::gen_output_error(const gr_complex *in) {
     error = real(d_s_0T) * (real(d_s_late) - real(d_s_early)) +
                  imag(d_s_0T) * (imag(d_s_late) - imag(d_s_early));
 #ifdef ELG_DEBUG
-    cout << "Interp and Calc timing error:" << error << " Cnt:" << debug_count << endl;
-    debug_count++;
+    cout << "Interp and Calc timing error:" << error << " Cnt:" << d_symbol_counter << endl;
 #endif
     return error;
 }
@@ -248,6 +247,9 @@ rfidbts_elg_timing_cc::general_work (int noutput_items,
       };
   }
 work_end:
+  if(ii >= ni) {
+  //    cout << "Bailing because not enough samples" << endl;
+  }
   assert(ii <= ninput_items[0] );
   consume_each(ii);
   return oo;

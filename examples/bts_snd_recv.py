@@ -35,13 +35,13 @@ class app_top_block(gr.top_block):
             self.connect(self.f_src, self.src)
         else:
 #self.src = gr.fir_filter_ccf(8, gr.firdes.low_pass(1.0, 1.0, 1.0/8.0, 1.0/8.0))
-            self.bb_sink = gr.file_sink(
-                    itemsize = gr.sizeof_gr_complex,
-                    filename = 'bb_dump.dat')
+#            self.bb_sink = gr.file_sink(
+#                    itemsize = gr.sizeof_gr_complex,
+#                    filename = 'bb_dump.dat')
             self.src = self.setup_src()
-            self.connect(
-                   self.src,
-                   self.bb_sink)
+#            self.connect(
+#                   self.src,
+#                   self.bb_sink)
 
 
         if xmtr_hack:

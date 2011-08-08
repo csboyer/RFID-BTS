@@ -175,12 +175,12 @@ void rfidbts_controller::setup_query_ack_rep_burst() {
     rx_burst_task rx_tasks[16];
     int num_tasks = 0;
     //encoder commands
-    setup_on_wait(2*500000); //~1 sec
+    setup_on_wait(1*50000); //~1 sec
     setup_preamble();
     setup_query();
     setup_on(); //~100ms
     //receive gate commands
-    setup_gate(rx_tasks + num_tasks, 25 + 75 + 83 + 8 * 50 + 14 * 25 + 10);     //length of query - data0, RT cal TRCal + data + 10us of buffer
+    setup_gate(rx_tasks + num_tasks, 25 + 75 + 83 + 8 * 50 + 14 * 25 + 150);     //length of query - data0, RT cal TRCal + data + 10us of buffer
     num_tasks++;
     setup_gate_tag(rx_tasks + num_tasks);
     num_tasks++;
@@ -195,19 +195,25 @@ void rfidbts_controller::setup_ack_burst(const vector<char> &RN16) {
     rx_burst_task rx_tasks[16];
     int num_tasks = 0;
     d_mac_state = MS_EPC;
+    int s;
+    int ii;
+
+    s = 0;
+    for(ii = 0; ii < 16; ii++) {
+        s += RN16[ii];
+    }
+    assert(s <= 16);
 
     setup_frame_synch();
     setup_ack(RN16);
     setup_on();
 
-    setup_gate(rx_tasks + num_tasks, 25 + 75 + 25 + 50 + 14 * 25 + 2 * 50);
+    setup_gate(rx_tasks + num_tasks, 25 + 75 + 25 + 50 + (16 - s) * 25 + s * 50 + 150);
     num_tasks++;
     setup_gate_tag(rx_tasks + num_tasks);
     num_tasks++;
     setup_ungate(rx_tasks + num_tasks, 800);
     num_tasks++;
-    //setup_gate_done(rx_tasks + num_tasks);
-    //num_tasks++;
     d_gate_queue->insert_tail(make_task_message(sizeof(rx_burst_task), num_tasks, rx_tasks));
 }
 /////////// baseband call backs
@@ -227,7 +233,7 @@ gr_message_sptr rfidbts_controller::make_task_message(size_t task_size, int num_
 
 void rfidbts_controller::preamble_gate_callback(preamble_gate_task &task) {
     //number of samples to pass through to the preamble srcher
-    task.len = 500;
+    task.len = 550 - INIT_OFFSET;
 #ifdef CONTROLLER_DEBUG
     cout << "Gate callback passing samples: " << task.len << endl;
 #endif
@@ -235,15 +241,16 @@ void rfidbts_controller::preamble_gate_callback(preamble_gate_task &task) {
 
 void rfidbts_controller::preamble_srch_callback(preamble_srch_task &task) {
     //number of samples the srcher should expect
-    task.len = 500;
+    task.len = 550 - INIT_OFFSET;
 #ifdef CONTROLLER_DEBUG
     cout << "Srch callback passing samples: " << task.len << endl;
 #endif
 }
 
 void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
-    preamble_align_task align_task[16];
-    symbol_sync_task sync_task[16];
+    preamble_align_task align_task[8];
+    symbol_sync_task sync_task[8];
+    rx_burst_task rx_tasks;
     unsigned char *buf;
     int align_msg_size;
     int sync_msg_size;
@@ -258,13 +265,15 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
                 //shift to start of frame
                 align_task[0].cmd = PA_ALIGN_CMD;
                 align_task[0].len = task.len - (12 + 7) * 8 + INIT_OFFSET;
+                assert(align_task[0].len < 800);
                 align_task[1].cmd = PA_UNGATE_CMD;
                 align_task[1].len = 8;
                 //tag the start of frame
                 align_task[2].cmd = PA_TAG_CMD;
                 //ungate
                 align_task[3].cmd = PA_UNGATE_CMD;
-                align_task[3].len = (12 + 6 + 32) * 8 + 16 - 1;
+                align_task[3].len = (12 + 6 + 32) * 8 + 50 - 1;
+                assert(align_task[3].len < 800);
                 //signal end
                 align_task[4].cmd = PA_DONE_CMD;
                 ////////////////sync command
@@ -282,13 +291,15 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
                 //shift to start of frame
                 align_task[0].cmd = PA_ALIGN_CMD;
                 align_task[0].len = task.len - (12 + 7) * 8 + INIT_OFFSET;
+                assert(align_task[0].len < 800);
                 align_task[1].cmd = PA_UNGATE_CMD;
                 align_task[1].len = 8;
                 //tag the start of frame
                 align_task[2].cmd = PA_TAG_CMD;
                 //ungate
                 align_task[3].cmd = PA_UNGATE_CMD;
-                align_task[3].len = (12 + 6 + 32) * 8 + 15;
+                align_task[3].len = (12 + 6 + 32) * 8 + 50;
+                assert(align_task[3].len < 800);
                 //
                 sync_msg_size = 1;
                 sync_task[0].cmd = SYM_TRACK_CMD;
@@ -299,7 +310,12 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
                 assert(0);
         };
         d_state = BIT_DECODE;
+
+#ifdef CONTROLLER_DEBUG
+    cout << "Queueing commands after detect : " <<  endl;
+#endif
         d_sync_queue->insert_tail(make_task_message(sizeof(symbol_sync_task), sync_msg_size, sync_task));
+        d_align_queue->insert_tail(make_task_message(sizeof(preamble_align_task), align_msg_size, align_task));
     }
     else {
         cout << "No preamble found!" << endl;
@@ -308,12 +324,20 @@ void rfidbts_controller::preamble_align_setup(preamble_srch_task &task) {
         align_task[0].cmd = PA_ALIGN_CMD;
         align_task[0].len = 1;
         align_task[1].cmd = PA_DONE_CMD;
+        //need to flush out the gate buffer
+        if(d_mac_state == MS_EPC) {
+            setup_gate_done(&rx_tasks);
+            d_gate_queue->insert_tail(make_task_message(sizeof(rx_burst_task), 1, &rx_tasks));
+        }
         d_state = READY_DOWNLINK;
         d_mac_state = MS_IDLE;
+#ifdef CONTROLLER_DEBUG
+    cout << "Queueing commands after failed detect : " <<  endl;
+#endif
+        d_align_queue->insert_tail(make_task_message(sizeof(preamble_align_task), align_msg_size, align_task));
         issue_downlink_command();
     }
 
-    d_align_queue->insert_tail(make_task_message(sizeof(preamble_align_task), align_msg_size, align_task));
 }
 
 void rfidbts_controller::preamble_search(bool success, preamble_search_task &task) {
@@ -407,6 +431,7 @@ void rfidbts_controller::decoded_message(const vector<char> &msg) {
 
     switch(d_mac_state) {
         case MS_RN16:
+            d_state = PREAMBLE_DET;
             setup_ack_burst(msg);
             iter = msg.begin();
             cout << "RN16 Message: 0x";
@@ -415,7 +440,6 @@ void rfidbts_controller::decoded_message(const vector<char> &msg) {
                 iter += 4;
             }
             cout << endl;
-            d_state = PREAMBLE_DET;
             break;
         case MS_EPC:
             //always CRC 16
@@ -434,12 +458,12 @@ void rfidbts_controller::decoded_message(const vector<char> &msg) {
             d_state = BIT_DECODE;
             d_mac_state = MS_EPC_PKT;
             //gate tasks
-            setup_ungate(rx_tasks + 0, d_epc_len * 16 + 40);
+            setup_ungate(rx_tasks + 0, d_epc_len * 16 + 90);
             setup_gate_done(rx_tasks + 1);
             d_gate_queue->insert_tail(make_task_message(sizeof(rx_burst_task), 2, rx_tasks));
             //align tasks
             align_task[0].cmd = PA_UNGATE_CMD;
-            align_task[0].len = d_epc_len * 16 + 40;
+            align_task[0].len = d_epc_len * 16 + 90;
             align_task[1].cmd = PA_DONE_CMD;
             d_align_queue->insert_tail(make_task_message(sizeof(preamble_align_task), 2, align_task));
             //sync tasks
