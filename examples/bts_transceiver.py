@@ -22,7 +22,7 @@ class symbol_mapper(gr.hier_block2):
         self.mf = gr.fir_filter_ccf(1, half_sym_taps)
         self.timing_recovery = rfidbts.elg_timing_cc(phase_offset = 0,
                                                      samples_per_symbol = 8,
-                                                     dco_gain = 0.3,
+                                                     dco_gain = 0.02,
                                                      order_1_gain = 0.01,
                                                      order_2_gain = 0.0001)
         q = gr.msg_queue(1000)
@@ -61,9 +61,9 @@ class preamble_search(gr.hier_block2):
 #mag to square
         c_to_r = gr.complex_to_mag()
 #peak detector
-        thr = 5
+        thr = 3
         look = 40
-        a = 0.01
+        a = 0.001
         peak_d = gr.peak_detector2_fb(thr, look, a)
 #preamble_gate
         preamble_gate = rfidbts.preamble_gate()
@@ -77,8 +77,8 @@ class preamble_search(gr.hier_block2):
 #        ms = gr.file_sink(gr.sizeof_float, "search/resamp_0.dat")
 #        ps = gr.file_sink(gr.sizeof_float, "search/peak_0.dat")
 #        strobe = gr.file_sink(gr.sizeof_char, "search/strobe_0.dat")
-#self.agc_out = gr.file_sink(itemsize = gr.sizeof_gr_complex,
-#filename = "agc.dat")
+        self.agc_out = gr.file_sink(itemsize = gr.sizeof_gr_complex,
+                                    filename = "agc.dat")
 #connect everything
         self.connect(self, preamble_align, self)
         self.connect(self, preamble_gate, corr, c_to_r, (peak_d,0), preamble_srch)
@@ -88,7 +88,7 @@ class preamble_search(gr.hier_block2):
 #        self.connect((peak_d,0), strobe)
 #        self.connect((peak_d,1), ps)
 #        self.connect(preamble_align, slicer_dicer_dump)
-#self.connect(preamble_gate, self.agc_out)
+        self.connect(preamble_gate, self.agc_out)
 
 ###################################
 #Top level block
@@ -112,16 +112,16 @@ class proto_transceiver(gr.hier_block2):
 ####################################
 #downlink blocks
         q_blocker = gr.msg_queue(100)
-        self.TX_blocker = rfidbts.receive_gate(threshold = 0.15,     #bit above the noise floor
+        self.TX_blocker = rfidbts.receive_gate(threshold = 0.01,     #bit above the noise floor
                                                off_max = 15)         #should not be in the off state for more than 13 us
         self.TX_blocker.set_gate_queue(q_blocker)
         rfidbts.cvar.rfid_mac.set_gate_queue(q_blocker)
         self.blocker = gr.dc_blocker_cc(D = 5, 
                                         long_form = True)
-        self.agc = gr.agc_cc(rate = 22e-1, 
+        self.agc = gr.agc_cc(rate = 10e-1, 
                              reference = 0.5, 
                              gain = 70.0,
-                             max_gain = 200.0)
+                             max_gain = 1000.0)
         self.search = preamble_search()
         self.half_symbols = symbol_mapper()
         self.decoder = rfidbts.orthogonal_decode()
